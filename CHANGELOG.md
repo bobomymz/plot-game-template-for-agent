@@ -23,3 +23,9 @@
 - `templates.md` 新增 §7 变量表（variables.json）与 §8 结局表（endings.json）模板，落实阶段 2 四项闭环要求。
 - CLAUDE.md 阶段 3 产出要求：技术栈确定后在 CLAUDE.md 增补「常用命令」小节（dev/test/build）。
 - 补记会话日志 02，新增会话日志 03。
+
+## workflow-v2.3 — 2026-10-04
+
+- 新增「新项目初始化清单」（templates.md §9），CLAUDE.md 头部挂指引：复用时清理模板元日志/ADR、重置状态与 CHANGELOG、重新 git init。
+- 节点 schema 修正（templates.md §6）：每章一文件存节点数组；线性节点用节点级 `next`（与 `choices` 二选一，皆无则须为结局 entry_node）；`effects` 统一 `{"delta":n}`/`{"set":v}`，节点级与选项级同构；`conditions` 定为进入条件。
+- 新增 `.gitignore` 忽略 `.serena/`。

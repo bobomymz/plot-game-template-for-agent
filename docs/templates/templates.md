@@ -85,17 +85,31 @@ source_sessions: []
 
 ## 6. 剧情节点 /story/chapters/*.json
 
+每章一个文件（如 `ch1.json`），内容为该章全部节点的数组；会话按需加载单章。
+
 ```json
-{
-  "id": "ch1_03",
-  "text": "……",
-  "conditions": {"flag_met_xx": true},
-  "choices": [
-    {"text": "追问", "effects": {"trust_xx": 1, "flag_asked": true}, "next": "ch1_04a"},
-    {"text": "离开", "effects": {"trust_xx": -1}, "next": "ch1_04b"}
-  ]
-}
+[
+  {
+    "id": "ch1_03",
+    "text": "……",
+    "conditions": {"flag_met_xx": true},
+    "next": "ch1_04",
+    "effects": {"flag_seen_xx": {"set": true}}
+  },
+  {
+    "id": "ch1_04",
+    "text": "……",
+    "choices": [
+      {"text": "追问", "effects": {"trust_xx": {"delta": 1}}, "next": "ch1_05a"},
+      {"text": "离开", "effects": {"trust_xx": {"delta": -1}}, "next": "ch1_05b"}
+    ]
+  }
+]
 ```
+
+- `next` 与 `choices` 二选一：线性节点用节点级 `next`，分支节点用 `choices`；两者皆无为终点，必须是结局表引用的 `entry_node`，否则校验报死路。
+- `effects` 统一语法：数值增减 `{"delta": n}`，赋值 `{"set": v}`；节点级与选项级同构，并与 variables.json 的 `changes` 记录一一对应。
+- `conditions` 为进入该节点的条件，引用 variables.json 变量。
 
 ## 7. 变量表 /story/variables.json
 
@@ -135,3 +149,14 @@ source_sessions: []
   }
 }
 ```
+
+## 9. 新项目初始化清单
+
+把本模板母本复制为新游戏项目后、开始阶段 1 前，按序执行：
+
+1. 删除 `docs/sessions/` 下全部模板元会话日志、`docs/decisions/` 下全部模板 ADR。
+2. 按 §1 模板重置 `docs/00-project-state.md`（清空 notes 与 frozen）。
+3. 重置 `CHANGELOG.md`：仅保留一行「基于工作流模板 workflow-v2.x 初始化」。
+4. 创建/清空 `/memory/index.json` 为 `{}`；确认 `/story/`、`/lore/`、`/src/`、`/tests/` 无模板遗留内容。
+5. 执行完本清单后，删除 CLAUDE.md 头部指向本清单的指引；「常用命令」小节留待阶段 3 回填。
+6. 重新 `git init` 并做首次提交（母本的 git 历史与标签不随文件复制）。
