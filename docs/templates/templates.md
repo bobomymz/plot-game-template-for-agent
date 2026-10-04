@@ -52,7 +52,7 @@ notes: []             # 用户偏好、约束等
 ## 4. 实体卡 /lore/{characters|locations|events|factions}/<id>.yaml
 
 ```yaml
-id: <type>_<name>        # 如 char_hu、loc_jingjue_city
+id: <type>_<name>        # 如 char_xx、loc_xx_city
 type: character          # character | location | event | faction
 name:
 status: draft            # draft | frozen | deprecated
@@ -94,5 +94,44 @@ source_sessions: []
     {"text": "追问", "effects": {"trust_xx": 1, "flag_asked": true}, "next": "ch1_04a"},
     {"text": "离开", "effects": {"trust_xx": -1}, "next": "ch1_04b"}
   ]
+}
+```
+
+## 7. 变量表 /story/variables.json
+
+每个变量一条记录，四个字段对应「来源 / 变化 / 用途 / 结局条件」闭环要求，值引用节点 ID / 结局 ID。任一字段为空数组即闭环缺失，阶段 2 自查与阶段 5 校验以本文件为准。
+
+```json
+{
+  "trust_ally": {
+    "desc": "同伴信任度（0-5）",
+    "init": 0,
+    "source": ["ch1_02"],
+    "changes": [
+      {"node": "ch1_02", "delta": 1},
+      {"node": "ch2_03", "set": 3}
+    ],
+    "uses": ["ch2_10:conditions", "ch3_04:解锁选项"],
+    "endings": [{"ending": "end_true", "cond": ">=3"}]
+  }
+}
+```
+
+## 8. 结局表 /story/endings.json
+
+每个结局一条记录。`requirements` 引用 variables.json 中的变量名；`priority` 数值越小越优先，多结局条件同时满足时按其判定，避免歧义。
+
+```json
+{
+  "end_true": {
+    "name": "真结局",
+    "desc": "一句话描述",
+    "entry_node": "end_true_01",
+    "requirements": [
+      {"var": "trust_ally", "op": ">=", "value": 3},
+      {"var": "flag_relic_found", "op": "==", "value": true}
+    ],
+    "priority": 1
+  }
 }
 ```

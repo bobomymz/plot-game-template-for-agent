@@ -16,3 +16,10 @@
 - ADR 模板新增 `rejected` 状态与「备选方案」栏位，落实 §2.8/§5 的承诺。
 - 阶段 2 门禁补充验证方式：agent 图遍历自查 + 阶段 5 自动校验复核。
 - 启用 git：`git init` + 首个提交，打标签 `v0.1-workflow`；移除「尚未 git init」相关注记。
+
+## workflow-v2.2 — 2026-10-04
+
+- 去题材化：删除《鬼吹灯·精绝古城》全部表述（CLAUDE.md 标题与示例、状态文件 notes、templates.md 实体卡示例），示例改用通用占位 `char_xx`/`loc_xx`；文档定位为可复用工作流模板（ADR-0001）。
+- `templates.md` 新增 §7 变量表（variables.json）与 §8 结局表（endings.json）模板，落实阶段 2 四项闭环要求。
+- CLAUDE.md 阶段 3 产出要求：技术栈确定后在 CLAUDE.md 增补「常用命令」小节（dev/test/build）。
+- 补记会话日志 02，新增会话日志 03。
