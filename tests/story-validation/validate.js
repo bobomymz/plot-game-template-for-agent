@@ -13,6 +13,10 @@
  * 结局表完整性，外加伏笔台账 × 行内注释对账（固定分支/混合）。
  * 路径专属项（联通红线、环秩、回收矩阵等）在阶段 3 于本文件尾部扩展区追加。
  *
+ * schema 对齐母本引擎方言（ADR-0010）：跳转 next/nextScene 等价（选项与节点级）、
+ * 条件可为对象/表达式串/函数（仅对象做静态变量收集）、onEnter 直改不解析（靠 VARIABLES.changes 对账）、
+ * nextScene 可为 redirect 函数（函数体内引用的已定义节点 ID 计入静态可达，仍计动态提示人工确认）。
+ *
  * 阶段 3 扩展点：
  *   - 项目新增节点字段 → checkNodes() 内标有「扩展点」处追加校验；
  *   - 项目改用 ESM/模块导入加载剧情 → 只改 loadStory() 的加载方式，检查逻辑不动；
@@ -41,17 +45,39 @@ function walk(dir, suffix, out) {
   return out;
 }
 
+function storyPrelude() {
+  const tag = (cls) => (s) => "<p" + (cls ? " class=\"" + cls + "\"" : "") + ">" + s + "</p>";
+  // 正文辅助函数桩：剧情文件在对象字面量里就会调用它们，沙箱放同名桩避免单文件加载中断。
+  // para 是母本约定（story/utils.js 可提供真实现）；项目自有辅助函数在此追加桩。
+  return {
+    storyData: {},
+    para: tag(""),
+    console: console
+  };
+}
+
 function runFile(code, filename) {
   // 单文件独立沙箱：取该文件自身定义的节点 key（重复定义检测用）
-  const sandbox = { storyData: {} };
+  // 正文在对象字面量里就会调用 para / RULES，沙箱里放同名桩，避免单文件加载中断。
+  const sandbox = storyPrelude();
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename });
   return sandbox;
 }
 
 function loadStory(dir) {
-  const files = walk(dir, '.js', []);
-  const merged = { storyData: {} }; // 合并执行：得到最终全量数据
+  const files = walk(dir, '.js', []).sort((a, b) => {
+    // 加载顺序：utils（辅助函数）→ 00core（引导/全局变量初值）→ 三表 → 正文按文件名
+    const rank = (f) => {
+      const base = path.basename(f);
+      if (base === 'utils.js') return 0;
+      if (base === '00core.js') return 2;
+      if (base === 'variables.js' || base === 'endings.js' || base === 'foreshadow.js') return 3;
+      return 4;
+    };
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
+  const merged = storyPrelude(); // 合并执行：得到最终全量数据。先有 para / RULES 桩，utils 与规则表会覆盖。
   vm.createContext(merged);
   const fileOf = {}; // 节点 ID -> 定义文件
   const srcOf = {};  // 文件 -> 源码（伏笔注释对账用）
@@ -69,9 +95,15 @@ function loadStory(dir) {
       else fileOf[id] = f;
     }
   }
+  const nodes = {};
+  for (const id of Object.keys(merged.storyData)) {
+    if (String(id).startsWith('_')) continue;
+    nodes[id] = merged.storyData[id];
+  }
   return {
-    files, nodes: merged.storyData,
+    files, nodes,
     vars: merged.VARIABLES || null,
+    runtimeVars: merged.storyData._variables || null,
     endings: merged.ENDINGS || null,
     fore: merged.FORESHADOW || null,
     fileOf, srcOf,
@@ -82,18 +114,28 @@ function loadStory(dir) {
 
 function outgoing(nodes, id) {
   // 返回 { targets: [节点ID], dynamic: 0|n }
+  // nextScene 与 next 等价（运行时引擎用 nextScene）
   const n = nodes[id];
   const out = { targets: [], dynamic: 0 };
   if (!n) return out;
-  if (typeof n.next === 'function') out.dynamic++;
-  else if (typeof n.next === 'string') out.targets.push(n.next);
+  const take = (dest) => {
+    if (typeof dest === 'function') {
+      out.dynamic++;
+      // 引擎方言：redirect 函数体内的节点 ID 字面量计入静态边（可达性/结局覆盖按并集算）。
+      // 只收已定义节点，避免把函数里的普通字符串（事件名/类名）误判为死链。
+      for (const m of String(dest).matchAll(/['"]([^'"]+)['"]/g)) {
+        if (nodes[m[1]]) out.targets.push(m[1]);
+      }
+    }
+    else if (typeof dest === 'string') out.targets.push(dest);
+  };
+  take(n.next || n.nextScene);
   if (Array.isArray(n.choices)) {
     for (const c of n.choices) {
       if (!c) continue;
-      if (typeof c.next === 'function') out.dynamic++;
-      else if (typeof c.next === 'string') out.targets.push(c.next);
+      take(c.next || c.nextScene);
     }
-  }
+  } else if (typeof n.choices === 'function') out.dynamic++;
   return out;
 }
 
@@ -129,13 +171,20 @@ function checkNodes(L) {
   let dynamicTotal = 0;
   for (const [id, n] of Object.entries(nodes)) {
     if (!n || typeof n !== 'object') { err(`节点 ${id}：不是对象`); continue; }
-    if (typeof n.text !== 'string' || !n.text.trim()) err(`节点 ${id}：缺 text`);
-    else if (n.text.trim().length >= 6) {
+    const textKind = n.text == null ? 'missing'
+      : typeof n.text === 'function' ? 'fn'
+      : Array.isArray(n.text) ? 'arr'
+      : typeof n.text === 'string' ? 'str' : 'bad';
+    if (textKind === 'missing' || textKind === 'bad') err(`节点 ${id}：缺 text`);
+    else if (textKind === 'arr' && !n.text.length) err(`节点 ${id}：缺 text`);
+    else if (textKind === 'str' && !n.text.trim()) err(`节点 ${id}：缺 text`);
+    else if (textKind === 'str' && n.text.trim().length >= 6) {
       const key = n.text.trim();
       if (textSeen.has(key)) warn(`文本重复：${id} 与 ${textSeen.get(key)} 的 text 完全相同`);
       else textSeen.set(key, id);
     }
-    const hasNext = 'next' in n, hasCh = Array.isArray(n.choices) && n.choices.length > 0;
+    const hasNext = ('next' in n) || ('nextScene' in n);
+    const hasCh = Array.isArray(n.choices) && n.choices.length > 0;
     if (hasNext && hasCh) err(`节点 ${id}：next 与 choices 并存（二选一）`);
     if (!hasNext && !hasCh && !endingEntries.has(id)) err(`节点 ${id}：死路（无 next/choices，且不是任何结局的 entry_node）`);
     const out = outgoing(nodes, id);
@@ -144,7 +193,7 @@ function checkNodes(L) {
     if (Array.isArray(n.choices)) {
       n.choices.forEach((c, i) => {
         if (!c || typeof c.text !== 'string' || !c.text.trim()) err(`节点 ${id}：选项 ${i} 缺 text`);
-        if (!('next' in c)) err(`节点 ${id}：选项 ${i}（${c && c.text}）缺 next`);
+        if (!('next' in c) && !('nextScene' in c)) err(`节点 ${id}：选项 ${i}（${c && c.text}）缺 next`);
       });
     }
     // 扩展点：项目专属节点字段（如 区域、位置、静态属性）在此追加校验
@@ -153,6 +202,7 @@ function checkNodes(L) {
 
   if (nodeIds.has('start')) {
     const fwd = reachable(nodes, ['start'], true);
+    for (const id of nodeIds) if (nodes[id] && nodes[id].engineEntry) fwd.add(id);
     for (const id of nodeIds) if (!fwd.has(id)) warn(`孤岛节点：${id}（从 start 不可达）`);
     if (endingEntries.size) {
       const back = reachable(nodes, [...endingEntries], false);
@@ -169,6 +219,7 @@ function checkEndings(L) {
   if (!ids.length) err('结局表为空');
   const startOk = nodeIds.has('start');
   const fwd = startOk ? reachable(nodes, ['start'], true) : new Set();
+  for (const id of nodeIds) if (nodes[id] && nodes[id].engineEntry) fwd.add(id);
   for (const [id, e] of Object.entries(endings)) {
     if (!e || typeof e.entry_node !== 'string') { err(`结局 ${id}：缺 entry_node`); continue; }
     if (!nodeIds.has(e.entry_node)) err(`结局 ${id}：entry_node ${e.entry_node} 不存在`);
@@ -179,7 +230,7 @@ function checkEndings(L) {
 }
 
 function checkVars(L) {
-  const { vars, nodes, endings } = L;
+  const { vars, nodes, endings, srcOf, runtimeVars } = L;
   if (!vars) { err('缺变量表（/story/variables.js 未定义 VARIABLES）'); return; }
   const nodeIds = new Set(Object.keys(nodes));
   const endingIds = new Set(endings ? Object.keys(endings) : []);
@@ -201,6 +252,9 @@ function checkVars(L) {
     for (const field of ['source', 'changes', 'uses', 'endings'])
       if (!Array.isArray(v[field]) || !v[field].length) err(`变量 ${name}：闭环缺失——${field} 为空（来源/变化/用途/结局条件四项闭环）`);
     if (typeof v.init !== 'number') warn(`变量 ${name}：缺 init 数值`);
+    // 双层一致性：VARIABLES.init 须与 00core.js 的 _variables 同名值一致（templates.md §7）
+    if (runtimeVars && name in runtimeVars && runtimeVars[name] !== v.init)
+      err(`变量 ${name}：双层不一致——VARIABLES.init=${v.init}，_variables=${runtimeVars[name]}（以 00core 运行时为准，改齐两处）`);
     if (typeof v.min === 'number' && typeof v.max === 'number') {
       if (v.min > v.max) err(`变量 ${name}：min > max`);
       if (typeof v.init === 'number' && (v.init < v.min || v.init > v.max)) err(`变量 ${name}：init=${v.init} 越出 [${v.min}, ${v.max}] 值域`);
@@ -215,8 +269,11 @@ function checkVars(L) {
       if (re && !endingIds.has(re.ending)) err(`变量 ${name}：endings 引用不存在的结局 ${re.ending}`);
   }
 
+  const blob = Object.values(srcOf || {}).join('\n');
   for (const [name, at] of usedIn) if (!vars[name]) err(`未声明变量：${name}（在 ${at.join('、')} 中被引用，但 variables.js 无此条目）`);
-  for (const name of Object.keys(vars)) if (!usedIn.has(name)) warn(`变量 ${name}：剧情文件中无任何读写（conditions/effects 均未引用）`);
+  for (const name of Object.keys(vars)) {
+    if (!usedIn.has(name) && blob.indexOf(name) < 0) warn(`变量 ${name}：剧情文件中无任何读写（conditions/effects 均未引用）`);
+  }
 
   // 结局判据值域（数值型）
   if (endings && vars) for (const [eid, e] of Object.entries(endings)) {

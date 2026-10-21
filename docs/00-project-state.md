@@ -1,8 +1,8 @@
 # 项目状态
 
 current_phase: 1 概念与需求（尚未开始提问，模板待复用）
-current_version: workflow-v2.10
-last_session: 2026-10-04-09-评估分流P2P3落地
+current_version: workflow-v3.0
+last_session: 2026-10-21-01-引擎起步包
 next_gate: 用户确认需求规格与概念圣经
 
 frozen: {}            # 尚无冻结内容
@@ -24,4 +24,8 @@ notes:
   - 2026-10-04（会话09）：落外部评估分流 P2×4/P3×2——CLAUDE.md 行数预算硬规则（上限约 150 行，硬规则 9）；阶段 1 竞案降载（已拍板层只记决策 + 至多 1 对照方案）；templates.md §7 变量语义收口 desc、§12 决策记录改决策索引、§9 补 Windows 编码/换行注意；阶段 2/3 门禁可检验化 + validate.js 新增 checkPacing 节奏带宽粗检（PACING 阈值可调，<3 剧情文件跳过）。v2.7（会话08）未提交改动随本次一并提交。
   - 2026-10-05（会话01）：据用户要求，阶段 2 新增「骨架先行」——骨架图草案先写入 03-story-blueprint.md，经用户审阅修改定稿后才落地为剧情文件；审阅中的关键裁决与注意点记 ADR / 会话日志。
   - 2026-10-05（会话02）：据建平930审阅负担，阶段 2 改为四轮小包审阅，并在落地剧情文件前与阶段 4 开工前加文档自检（ADR-0007，叙事路径.md §6）。细则不进 CLAUDE.md。
+  - 2026-10-06（会话01）：骨架图移出蓝图（ADR-0008，workflow-v2.11）。`03-story-blueprint.md` 只留结构合同；节拍、职责、遭遇与装配图按章或区域写入 `docs/skeleton/`，跨单位边只进 `index.md`。
+  - 2026-10-11（会话01）：成批矛盾或剧情 bug 用审阅页裁决（ADR-0009，workflow-v2.12）。壳在 `docs/templates/review-board.html`，实例与标注 JSON 在 `docs/reviews/`。达到 3 条才做页；四轮骨架审阅不变。
   - 仓库定位：可复用的剧情游戏工作流模板母本，不含具体游戏设定；新项目复制整套文档后从阶段 1 开始。
+  - 2026-10-12：新增 `docs/workflow-guide.html`，交互讲解目录与六阶段流程。不改阶段规则。
+  - 2026-10-21（会话01）：母本预置参考引擎与四文件范式（ADR-0010，workflow-v3.0）。`engine.js`/`index.html`/`style.css`/`story/`《雨夜旅馆》起步包双击即玩；schema 以引擎方言为准（templates.md §6/§7/§8/§14 重写，validate.js 适配）；CLAUDE.md 阶段3/4 改「裁剪母本引擎」。已知缺口：引擎无成就系统。母本引擎与 930 引擎自此分叉，修复需双向手动同步。

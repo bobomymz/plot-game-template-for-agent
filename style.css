@@ -1,0 +1,1062 @@
+/* ===== style.css · 母本参考样式（源自930实战，ADR-0010） =====
+   通用段落：preload / game-container / text / choices / status-bar / save-dialog / image-viewer。
+   可选机制段落（不挂对应 DOM 即不生效）：HUD 状态条、规则手册面板、记忆闪色、屏幕特效遮罩。
+   新项目按题材换肤：改 CSS 变量与字体起步，结构类名尽量不动（引擎按类名追加动画类）。 */
+/* ========== 设计系统：九三〇深夜来宾手册 ==========
+   2026-10-03 自尸潮笔记 style.css 移植剥离：
+   删除 weather-rain 雨滴遮罩、power-out 停电遮罩、zombie-surround-* 包围遮罩
+   （含两处媒体查询里的对齐覆盖）；保留基础 UI / 文本语义 class / 暗角基座 / #status-warning。
+   世界观锚点：
+   --phosphor 磷光绿 = 深夜校园里唯一醒着的强调色（仅光标/悬停/聚焦）
+   --blood    干血色 = 仅危险：QTE/违规/死亡
+   正文宋体 = 塑封手册印刷感；状态数字等宽 = 时刻表感
+   ==================================================== */
+
+:root {
+  --canvas:   #0b0d0a;   /* 页面底——中毒般暗绿黑 */
+  --paper:    #16140f;   /* 文字/选项面板——碳灰纸 */
+  --ink:      #cfc7b6;   /* 正文——褪色墨色 */
+  --ash:      #7a7466;   /* 次要文字/边框/占位 */
+  --phosphor: #a8d469;   /* 丧尸眼磷光绿——唯一强调色 */
+  --blood:    #9e2a22;   /* 干血——仅危险 */
+
+  /* —— 正文语义色（09-27 加，见 tools/剧情文本HTML增强方案.md §3）—— */
+  /* 系统/UI */
+  --sys:      #4ec9d4;   /* 系统提示青（替代过亮的 #00fbffff） */
+  --warn:     #ffaa00;   /* 警告橙（沿用既有 inline 色） */
+  --crit:     #ff4d3d;   /* 危险红（沿用既有 #ff4444 语义） */
+  /* 物质/感官 */
+  --gore:     #b05a4c;   /* 血、腐肉（描写性暗红，弱于 crit） */
+  --rot:      #9fb05a;   /* 丧尸、腐臭（脏黄绿，别和磷光绿混） */
+  --leaf:     #5f9e7a;   /* 植被 */
+  --water:    #6fa8c8;   /* 水、雨 */
+  --fire:     #ff9a3c;   /* 火、光 */
+  --dust:     #948d80;   /* 尘、雾、灰 */
+  --chem:     #c3cc7a;   /* 化工、汞（银绿） */
+  --smell:    #c0a06a;   /* 气味（褐黄） */
+  /* 载体/叙事 */
+  --mem:      #a99ec4;   /* 回忆（淡紫） */
+  --hand:     #d8c9a3;   /* 手写纸（暖白） */
+  --term:     #7fd3e8;   /* 电子屏（冷青） */
+  --sign:     #e0b64a;   /* 招牌（亮黄） */
+  --numb:     #9aa0a6;   /* 麻木/体征（冷灰，沿用既有 inline 色） */
+}
+
+/* ========== 全局重置 ========== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 触控设备：连点选项不触发双击缩放（桌面无感知） */
+.choice-btn,
+#restart-btn,
+#backtrack-btn,
+.choice-input-submit,
+#scene-text {
+  touch-action: manipulation;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;        /* 手机端地址栏收放不跳动（不支持 dvh 的浏览器用上一行） */
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: "STZhongsong", "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
+  overflow-x: hidden;
+  overflow-y: auto;          /* 允许纵向滚动查看选项 */
+}
+
+/* ========== 主容器（自然流布局） ========== */
+#game-container {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ========== 图片区域：占满一屏高度 ========== */
+#image-area {
+  width: 100%;
+  height: 100vh;             /* 恰好占满视口 */
+  height: 100dvh;
+  background: var(--canvas); /* 加载前底色 */
+  position: relative;
+  overflow: hidden;
+}
+
+#scene-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;         /* 裁剪铺满，不变形 */
+  display: block;
+}
+
+/* ====== 黑暗光锥（darkSearch，engine.js「黑暗光锥」节）====== */
+/* 提亮层：同图 + brightness 滤镜，径向 mask 只露出光圈——模拟手电照亮 */
+#dark-lit-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+  pointer-events: none;
+  filter: brightness(2.2) contrast(1.06);
+  -webkit-mask-image: radial-gradient(circle var(--lr, 0px) at var(--lx, 50%) var(--ly, 50%), #000 0 52%, transparent 96%);
+  mask-image: radial-gradient(circle var(--lr, 0px) at var(--lx, 50%) var(--ly, 50%), #000 0 52%, transparent 96%);
+}
+#dark-lit-layer.fire {
+  filter: brightness(1.9) contrast(1.05) sepia(0.35) saturate(1.35);
+}
+/* 手机微光：提亮比手电弱一点（遮罩中央还会再压一层暗，见下） */
+#dark-lit-layer.phone {
+  filter: brightness(2.0) contrast(1.04);
+}
+/* 遮罩层：圈外压黑（圈边缘半透过渡） */
+#dark-mask {
+  position: absolute;
+  inset: 0;
+  display: none;
+  pointer-events: none;
+  background: radial-gradient(circle var(--lr, 0px) at var(--lx, 50%) var(--ly, 50%),
+    rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0.25) 58%, rgba(0, 0, 0, 0.97) 100%);
+}
+#image-area.dark-fire #dark-mask {
+  background: radial-gradient(circle var(--lr, 0px) at var(--lx, 50%) var(--ly, 50%),
+    rgba(26, 10, 0, 0) 0, rgba(26, 10, 0, 0.3) 58%, rgba(10, 4, 0, 0.97) 100%);
+}
+/* 手机微光：光圈中央也压一层半透暗（提亮×压暗后圈内净亮度约 1.3×，只有手电的六成）——
+   亮的大件（车、人影、反光）看得出，暗处细字（标语/铭牌）基本不可辨，模拟"手机找东西
+   费劲"的难度梯度（视觉语言同断电灰遮罩）。两档透明度为可调口味值 */
+#image-area.dark-phone #dark-mask {
+  background: radial-gradient(circle var(--lr, 0px) at var(--lx, 50%) var(--ly, 50%),
+    rgba(0, 2, 8, 0.35) 0, rgba(0, 2, 8, 0.48) 58%, rgba(0, 2, 8, 0.97) 100%);
+}
+/* 激活态：显示双层、吃掉触摸滚动、隐藏系统光标（光圈就是光标） */
+#image-area.dark-searching {
+  touch-action: none;
+  cursor: none;
+}
+#image-area.dark-searching #dark-lit-layer,
+#image-area.dark-searching #dark-mask {
+  display: block;
+}
+/* 已发现热点标记（发现后常驻，重进场景按 var 恢复） */
+.dark-found-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 61;
+  background: rgba(10, 16, 11, 0.85);
+  color: #7ecf9d;
+  border: 1px solid rgba(126, 207, 157, 0.8);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+/* 热点照亮时追加的互动选项：入场动画标示"新发现" */
+.choice-btn.choice-new {
+  animation: choice-new-in 0.45s ease;
+}
+@keyframes choice-new-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ========== 图片查看器（imageZoom 标记场景可点开，见 engine.js 图片查看器节） ========== */
+/* 角标 = 门票：仅引擎在标记场景给 #image-area 加 .image-zoomable 时显示 */
+#zoom-badge {
+  position: absolute;
+  right: 24px;
+  bottom: 220px;             /* 抬到文本卡 -200px 叠压区之上 */
+  z-index: 60;               /* 压过特效遮罩（50），与文本/选项同层 */
+  padding: 6px 10px;
+  font-size: 20px;
+  line-height: 1;
+  background: rgba(22, 20, 15, 0.6);
+  border: 1px solid rgba(122, 116, 102, 0.4);
+  border-radius: 999px;
+  pointer-events: none;      /* 点击穿透到图片 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 140;              /* 文本展开(101)/状态栏(120)之上，QTE 条(150)之下 */
+  background: rgba(0, 0, 0, 0.92);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;        /* 手势全部接管（捏合缩放/拖拽平移） */
+  overscroll-behavior: contain;
+}
+
+#image-viewer-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;       /* 完整显示，永不裁切 */
+  transform-origin: 0 0;     /* 缩放平移由 JS 用 translate/scale 计算 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;      /* 手势统一落在背板 #image-viewer 上 */
+}
+
+/* ========== 剧情文字：碳灰纸 + 笔记本栏线 ========== */
+#text-area {
+  position: relative;
+  z-index: 60;
+  width: 88%;
+  max-width: 1200px;
+  max-height: 100px;        /* 根据你期望的区域大小调整 */
+  overflow-y: auto;         /* 纵向超出时显示滚动条 */
+  padding-right: 8px;       /* 让滚动条不遮挡文字 */
+  margin: -200px auto 0;      /* 向上移动 200px，覆盖图片底部边缘 */
+  padding: 26px 30px;
+  background: rgba(22, 20, 15, 0.92);          /* 碳灰纸（半透，透出场景） */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px;
+  border: 1px solid rgba(122, 116, 102, 0.3);
+  border-left: 3px solid rgba(158, 42, 34, 0.45);   /* 笔记本红色栏线 */
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.55);
+}
+
+#scene-text {
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.9;
+  letter-spacing: 0.5px;
+  white-space: pre-wrap;
+  position: relative;
+  transition: opacity 0.4s;
+}
+
+/* ========== 正文语义 class（09-27 加）==========
+   规则（写文时务必遵守，防"圣诞树"）：
+   1) 只允许行内元素：#scene-text 是 <p>，<div>/<ul>/<table> 会撑破段落；
+   2) 单段配额：≤2 处强调（crit/sfx/shout）+ ≤1 处环境色；
+   3) 环境色只包整句，不包单词；
+   4) 打字机每帧重写 innerHTML → 不要挂长 CSS 动画，会不停重启；
+   5) 新增/改名必须同步 engine.js 的 CHOICE_HTML_CLASSES（选项白名单）。
+   ============================================== */
+
+/* 系统/UI */
+.sys      { color: var(--sys); font-style: italic; }
+.sys.warn { color: var(--warn); }
+.sys.crit { color: var(--crit); }
+.numb     { color: var(--numb); letter-spacing: 1.2px; }
+
+/* 危险与声音 */
+.crit     { color: var(--crit); font-weight: bold; letter-spacing: 0.05em; }
+.warn     { color: var(--warn); }
+.sfx      { font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 1.35em; font-weight: bold; letter-spacing: 0.1em; }
+.sfx.crit { color: var(--crit); }
+.shout    { font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            font-size: 1.15em; font-weight: bold; color: var(--warn); }
+.rot      { color: var(--rot); letter-spacing: 0.08em; }
+
+/* 感官/叙事 */
+.smell    { color: var(--smell); font-style: italic; }
+.think    { color: #a99e86; font-style: italic; }
+.mem      { color: var(--mem); opacity: 0.9; }
+
+/* 环境（只包整句，单段最多 1 处） */
+.leaf     { color: var(--leaf); }
+.water    { color: var(--water); }
+.fire     { color: var(--fire); }
+.dust     { color: var(--dust); }
+.gore     { color: var(--gore); }
+.chem     { color: var(--chem);
+            text-shadow: 1.5px 0 0 rgba(195, 204, 122, 0.45), -1.5px 0 0 rgba(195, 204, 122, 0.25); }
+
+/* 载体 */
+.hand     { font-family: "STKaiti", "KaiTi", "Kaiti SC", serif; color: var(--hand); }
+.print    { letter-spacing: 0.08em; color: #b8b09d; }
+.term     { font-family: "Consolas", "Courier New", monospace; color: var(--term);
+            text-shadow: 0 0 6px rgba(127, 211, 232, 0.35); }
+.sign     { font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--sign); letter-spacing: 0.15em; }
+
+/* 数值/时间/结局 */
+.num      { font-family: "Consolas", "Courier New", monospace; color: var(--phosphor); font-weight: bold; }
+.clock    { font-family: "Consolas", "Courier New", monospace; font-size: 0.85em; color: var(--ash); }
+.end      { color: var(--blood); font-weight: bold; letter-spacing: 0.2em; font-size: 1.05em; }
+/* 死亡结局：正文段落用（end 是结局条专用，写在结局结算那一行） */
+.death    { color: var(--blood); font-weight: bold; letter-spacing: 0.12em; }
+
+/* 显示别名（{_display} / 选项文本里写的短名，等价于 .mem / .think） */
+.memory   { color: var(--mem); opacity: 0.9; }
+.inner    { color: #a99e86; font-style: italic; }
+
+/* 展开/收起文本区域 */
+#text-area.text-expanded {
+  position: fixed;
+  top: 8%;
+  left: 5%;
+  width: 90%;
+  max-width: none;
+  max-height: 82vh;
+  max-height: 82dvh;
+  z-index: 100;
+  margin: 0;
+  background: rgba(22, 20, 15, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px;
+  border: 1px solid rgba(122, 116, 102, 0.35);
+  border-left: 3px solid rgba(158, 42, 34, 0.55);   /* 展开时栏线更清楚 */
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+#text-area.text-expanded #scene-text {
+  cursor: zoom-out;
+}
+#text-area.text-expanded ~ #choices-area.text-expanded {
+  position: fixed;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  width: 88%;
+  max-width: 1000px;
+  margin: 0;
+}
+#scene-text {
+  cursor: zoom-in;
+}
+#scene-text.typing {
+  cursor: pointer;
+}
+
+/* 打字机光标——磷光绿（灰暗世界里唯一活着的光） */
+#scene-text.typing::after {
+  content: "▮";
+  color: var(--phosphor);
+  font-size: 20px;
+  animation: blink 0.8s infinite;
+  margin-left: 2px;
+  vertical-align: baseline;
+  text-shadow: 0 0 8px rgba(168, 212, 105, 0.6);
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ========== 选项区域（文字下方，需下滑查看） ========== */
+#choices-area {
+  position: relative;
+  z-index: 60;
+  width: 88%;
+  max-width: 1000px;
+  margin: 20px auto 40px;    /* 与文字保持间距，底部留空 */
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+}
+
+.choice-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 22px;
+  font-size: 16px;
+  color: var(--ink);
+  font-family: inherit;
+  background: rgba(22, 20, 15, 0.88);      /* 碳灰纸片 */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(122, 116, 102, 0.35);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+}
+
+/* 悬停效果见文件末尾 @media (hover: hover) —— 触屏设备不触发粘滞 hover */
+
+.choice-btn:active {
+  transform: translateY(0);
+}
+
+/* ===== 输入框选项 ===== */
+.choice-input-container {
+  z-index: 200;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.choice-input-label {
+  color: var(--phosphor);
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.choice-input-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.choice-input-field {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 18px;
+  color: var(--ink);
+  background: rgba(11, 13, 10, 0.6);
+  border: 1px solid rgba(122, 116, 102, 0.4);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  font-family: inherit;
+  letter-spacing: 2px;
+}
+
+.choice-input-field:focus {
+  border-color: var(--phosphor);
+  box-shadow: 0 0 12px rgba(168, 212, 105, 0.25);
+}
+
+.choice-input-field::placeholder {
+  color: rgba(122, 116, 102, 0.6);
+  letter-spacing: 0;
+}
+
+.choice-input-submit {
+  flex-shrink: 0;
+  width: auto;
+  padding: 12px 24px;
+  background: rgba(168, 212, 105, 0.12);
+  border-color: rgba(168, 212, 105, 0.4);
+}
+
+/* .choice-input-submit:hover 见文件末尾 @media (hover: hover) */
+
+/* 无选项提示文字 */
+#choices-area p {
+  color: var(--phosphor);
+  text-align: center;
+  font-size: 20px;
+  margin: 0 auto;
+}
+
+/* 结局屏的"— 剧 终 —"占满一行，让按钮换到下一行 */
+#choices-area p.end-msg {
+  flex-basis: 100%;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+/* ========== 重新开始按钮（固定右上角） ========== */
+#status-bar {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  z-index: 120;
+}
+
+#restart-btn,
+#backtrack-btn {
+  padding: 8px 22px;
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(11, 13, 10, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(122, 116, 102, 0.4);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: "Consolas", "Courier New", monospace;   /* 化验单感 */
+  letter-spacing: 1px;
+}
+/* 回溯按钮（顶部） */
+#backtrack-btn {
+  color: var(--phosphor);
+  border-color: rgba(168, 212, 105, 0.4);
+  margin-right: 8px;
+  display: none;
+}
+
+/* #backtrack-btn:hover 见文件末尾 @media (hover: hover) */
+
+/* QTE 倒计时浮层（结构由 engine.js startQteUi 创建） */
+#qte-timer {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 88%;
+  max-width: 640px;
+  z-index: 150;
+  margin-top: 8px;
+  padding: 12px 18px;
+  pointer-events: none;        /* 纯展示条：不拦截底下的图片触摸（darkSearch+QTE 叠加时光圈要全图可达） */
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(168, 212, 105, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+}
+
+.qte-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qte-label {
+  color: var(--ink);
+  font-weight: bold;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.qte-track {
+  flex: 1;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.qte-progress {
+  height: 100%;
+  width: 100%;
+  background: var(--blood);
+  border-radius: 5px;
+}
+
+.qte-countdown {
+  color: var(--ink);
+  font-weight: bold;
+  font-size: 16px;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* 最后 1 秒警戒色（由 engine.js 加类） */
+#qte-timer.qte-urgent .qte-progress {
+  background: #7d1f1a;
+}
+#qte-timer.qte-urgent .qte-countdown {
+  color: #7d1f1a;
+}
+
+/* ===== 场景抖动 ===== */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%      { transform: translateX(-7px) rotate(-0.6deg); }
+  30%      { transform: translateX(7px)  rotate(0.6deg); }
+  50%      { transform: translateX(-5px) rotate(-0.3deg); }
+  70%      { transform: translateX(5px)  rotate(0.3deg); }
+  90%      { transform: translateX(-2px); }
+}
+#game-container.shake {
+  animation: shake 0.45s ease-out;
+  will-change: transform;   /* 隔离渲染层，避免重排扩散 */
+}
+
+/* ===== 屏幕特效遮罩层 ===== */
+#screen-effect-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;        /* 不阻挡点击 */
+  z-index: 50;
+  transition: background 0.8s ease;
+}
+
+/* 体力=2：轻微暗角 */
+#screen-effect-overlay.vignette-warning {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+/* 体力≤1：重度暗角 + 脉冲呼吸感 */
+#screen-effect-overlay.vignette-danger {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 35%,
+    rgba(0, 0, 0, 0.72) 100%
+  );
+  animation: pulse-vignette 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse-vignette {
+  0%, 100% {
+    background: radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,0.6) 100%);
+  }
+  50% {
+    background: radial-gradient(ellipse at center, transparent 28%, rgba(0,0,0,0.78) 100%);
+  }
+}
+
+/* ===== 状态警告浮层（flashStatusWarning 提示：修订广播/违规被注意）——干血色 ===== */
+#status-warning {
+  position: fixed;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  padding: 9px 22px;
+  background: rgba(158, 42, 34, 0.92);
+  color: #f3d9cd;
+  border: 1px solid rgba(158, 42, 34, 0.8);
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.55);
+  z-index: 9000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+#status-warning.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ===== 预加载遮罩 ===== */
+#preload-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: var(--canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease;
+  opacity: 1;
+}
+#preload-overlay.preload-done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#preload-box {
+  width: 80%;
+  max-width: 480px;
+  text-align: center;
+}
+
+#preload-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--ink);
+  letter-spacing: 8px;
+  margin-bottom: 28px;
+  text-shadow: 0 0 18px rgba(168, 212, 105, 0.25);   /* 磷光氤氲 */
+}
+
+#preload-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(122, 116, 102, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+#preload-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #5d7740, var(--phosphor));   /* 磷光加载 */
+  border-radius: 3px;
+  transition: width 0.25s ease;
+}
+
+#preload-label {
+  font-size: 13px;
+  color: var(--ash);
+  letter-spacing: 2px;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+/* ===== 存档选择对话框（启动时检测到存档） ===== */
+#save-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;              /* 压过预加载遮罩 9999 */
+  background: rgba(11, 13, 10, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.save-dialog-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 24px;
+  background: rgba(22, 20, 15, 0.95);
+  border: 1px solid rgba(122, 116, 102, 0.35);
+  border-left: 3px solid rgba(158, 42, 34, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.save-dialog-title {
+  font-size: 20px;
+  color: var(--ink);
+  letter-spacing: 3px;
+  margin-bottom: 12px;
+}
+
+.save-dialog-summary {
+  font-size: 14px;
+  color: var(--ash);
+  letter-spacing: 1px;
+  margin-bottom: 22px;
+  font-family: "Consolas", "Courier New", monospace;
+}
+
+.save-dialog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===== 悬停效果：仅真正支持悬停的设备（桌面）生效 ===== */
+@media (hover: hover) {
+  /* 悬停：左侧浮起磷光绿竖线（像用绿笔标注重点） */
+  .choice-btn:hover {
+    border-color: rgba(168, 212, 105, 0.5);
+    color: #efe9da;
+    transform: translateY(-2px);
+    box-shadow: inset 3px 0 0 var(--phosphor), 0 6px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .choice-input-submit:hover {
+    background: rgba(168, 212, 105, 0.25);
+    transform: translateY(-1px);
+  }
+
+  #backtrack-btn:hover {
+    color: #efe9da;
+    background: rgba(168, 212, 105, 0.15);
+    border-color: rgba(168, 212, 105, 0.6);
+  }
+
+  /* 标记场景的场景图：放大镜光标（门票语义，未标记场景不变） */
+  #image-area.image-zoomable #scene-image {
+    cursor: zoom-in;
+  }
+
+  /* 查看器内：未放大时可继续放大，放大后可拖拽 */
+  #image-viewer {
+    cursor: zoom-in;
+  }
+  #image-viewer.zoomed {
+    cursor: grab;
+  }
+}
+
+/* ===== 手机竖屏：单屏紧凑布局（图上 / 文中 / 选项下，一屏内完成阅读+选择） ===== */
+@media (max-width: 767px) {
+  html, body {
+    overflow: hidden;                  /* 整页不滚动 */
+    overscroll-behavior-y: contain;    /* 屏蔽下拉刷新（误触即丢进度） */
+  }
+
+  #game-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  #image-area {
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;              /* 图片区跟随图片原生比例（63% 的图是 16:9），竖屏不再左右裁切 */
+    max-height: 42vh;                  /* 矮宽屏回退：保持旧的三段布局比例 */
+    max-height: 42dvh;
+    min-height: 0;
+    -webkit-touch-callout: none;       /* 长按图片不弹系统菜单 */
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #scene-image,
+  #dark-lit-layer {
+    object-fit: contain;               /* 非 16:9 的图完整显示、两侧/上下补底色，永不裁内容 */
+  }
+
+  /* 角标贴图片区右下角（手机端文本卡不叠压图片，无需抬高） */
+  #zoom-badge {
+    right: 10px;
+    bottom: 8px;
+    font-size: 16px;
+    padding: 5px 8px;
+  }
+
+  #text-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 92%;
+    max-height: none;                  /* 清掉桌面的 100px */
+    margin: 10px auto 0;               /* 清掉桌面的 -200px 上叠 */
+    padding: 16px 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    backdrop-filter: blur(8px);        /* 14px → 8px，手机端性能降档 */
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  #scene-text {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+
+  #choices-area {
+    flex: 0 0 auto;
+    flex-direction: column;            /* 纵向排列，不再挤成细条 */
+    width: 92%;
+    margin: 10px auto 0;
+    max-height: 38vh;
+    max-height: 38dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    gap: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .choice-btn {
+    min-height: 46px;                  /* ≥44px 触控目标 */
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+
+  .choice-input-field {
+    user-select: text;                 /* 输入框保持可选可输 */
+    -webkit-user-select: text;
+  }
+
+  #status-bar {
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    right: calc(env(safe-area-inset-right, 0px) + 10px);
+  }
+
+  #restart-btn,
+  #backtrack-btn {
+    min-height: 44px;
+    padding: 10px 18px;
+    font-size: 15px;
+  }
+
+  /* QTE 条下移到状态栏下方，不再遮挡"重启 / 回溯" */
+  #qte-timer {
+    top: calc(env(safe-area-inset-top, 0px) + 64px);
+    margin-top: 0;
+    padding: 10px 14px;
+  }
+
+  /* 展开态：top + bottom 双锚点，底部留 148px 给选项，二者不重叠 */
+  #text-area.text-expanded {
+    top: calc(env(safe-area-inset-top, 0px) + 52px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 148px);
+    left: 4%;
+    width: 92%;
+    max-height: none;
+  }
+
+  #text-area.text-expanded ~ #choices-area.text-expanded {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    max-height: 132px;
+    overflow-y: auto;
+  }
+
+  /* 状态警告浮层让开 QTE 条 */
+  #status-warning {
+    top: calc(env(safe-area-inset-top, 0px) + 136px);
+  }
+}
+
+/* ===== 手机横屏：侧栏布局（图左满高 / 文+选项右侧栏） =====
+   动机：竖屏 contain 的 16:9 图是宽度受限（390×219），加高只补黑边；横屏是唯一真正的
+   放大杠杆（844×390 下图片列约 506×285，约 1.7 倍面积）——光锥搜索（darkSearch）的
+   热点坐标是图片百分比、引擎 darkFit 实时读 object-fit，旋转后几何自动适配。
+   触发是双判据并集：宽度 ≤767（沿用竖屏块的手机判据——这种机型横屏时竖屏块同样
+   命中，本块必须写在其后靠源序覆盖）+ 高度 ≤500（横屏手机高度一律 375~430，宽度
+   判据漏掉的 844/932px 宽现代机型由它兜住；桌面矮窗口顺带享受紧凑侧栏，无害）。
+   因此块内规则对基础层自洽（max-height/flex-direction/object-fit 都自带覆盖），
+   不依赖竖屏块先清场。引擎侧配合：darkSearch 竖屏进场提示横屏 + resize 收拢光圈
+   （engine.js「黑暗光锥」节）。 */
+@media (max-width: 767px) and (orientation: landscape),
+       (max-height: 500px) and (orientation: landscape) {
+  #game-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) min(40%, 340px);   /* 图占满高左列，右侧栏 */
+    grid-template-rows: minmax(0, 1fr) auto;                 /* 文本弹性撑满 / 选项自然高 */
+    height: 100vh;
+    height: 100dvh;
+    padding-left: env(safe-area-inset-left, 0px);            /* 横屏刘海在左右两侧 */
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  #image-area {
+    grid-area: 1 / 1 / 3 / 2;      /* 跨两行、满高 */
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;            /* 清竖屏 16:9——横屏以列宽×满高为准 */
+    max-height: none;
+  }
+
+  /* 宽 >767 机型横屏时竖屏块不命中、基础层是 cover——这里统一 contain，
+     手机端两向都认定"完整显示优先"；光锥几何（darkFit 读 object-fit）随之自适应 */
+  #scene-image,
+  #dark-lit-layer {
+    object-fit: contain;
+  }
+
+  #text-area {
+    grid-area: 1 / 2 / 2 / 3;
+    width: auto;                   /* 列宽交给网格 */
+    max-height: none;              /* 清基础层 100px（≤767 机型竖屏块已清，宽机型靠这行） */
+    margin: 8px 8px 0 0;
+    padding: 12px 12px;
+  }
+
+  #scene-text {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  #choices-area {
+    grid-area: 2 / 2 / 3 / 3;
+    width: auto;
+    max-width: none;
+    flex-direction: column;        /* 宽机型基础层是横排——侧栏内一律纵排 */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)) 0;
+    padding-bottom: 10px;          /* 安全区补在 margin 里，不双重叠加 */
+    max-height: 55dvh;             /* 选项多时栏内滚动，不挤死文本行 */
+    gap: 8px;
+  }
+
+  .choice-btn {
+    min-height: 44px;              /* 触控目标不缩水 */
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  /* 角标贴图片右下（宽机型没有竖屏块的贴角规则，这里统一） */
+  #zoom-badge {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  /* QTE 条贴屏幕顶缘（右上角是状态栏所在的侧栏顶，本条左锚不与之相碰）：横屏 contain 的
+     16:9 图上下各留 ~50-75px 黑边，条贴顶后整体落进顶部黑边，不罩图片内容——
+     darkSearch+QTE 叠加场（全家员工通道等）光圈热点区不被挡（真机反馈：top+56 会盖住上半张图） */
+  #qte-timer {
+    top: calc(env(safe-area-inset-top, 0px) + 4px);
+    left: calc(env(safe-area-inset-left, 0px) + 12px);
+    transform: none;
+    width: min(52vw, 480px);
+  }
+
+  /* 展开文本收进右侧栏（竖屏块的 top/bottom/left/宽度在此覆盖），不再全屏盖住图片；
+     底部照竖屏惯例给展开选项留位 */
+  #text-area.text-expanded {
+    left: auto;
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+    width: min(40%, 340px);
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
+  }
+  #text-area.text-expanded ~ #choices-area.text-expanded {
+    left: auto;
+    right: calc(env(safe-area-inset-right, 0px) + 8px);
+    transform: none;
+    width: min(40%, 340px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+    max-height: 138px;
+  }
+}
+
+/* ===== 规则手册面板 ===== */
+#rules-btn { position: fixed; left: 12px; bottom: 12px; z-index: 130; padding: 8px 14px;
+  background: rgba(40, 40, 48, 0.9); color: #cfc9b8; border: 1px solid #6b6455; border-radius: 6px; }
+#rules-panel { position: fixed; left: 12px; bottom: 52px; z-index: 130; max-width: min(420px, 86vw);
+  max-height: 56vh; overflow-y: auto; background: rgba(24, 24, 30, 0.96); color: #d8d2c0;
+  border: 1px solid #6b6455; border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.7; }
+.rules-head { font-weight: bold; margin-bottom: 8px; letter-spacing: 0.05em; }
+.rules-group { margin: 10px 0 4px; color: #9a8f74; border-bottom: 1px dashed #4a453a; }
+.rules-item { margin: 6px 0; }
+/* 只给"结论"着色：未定案的条目走默认色，和印刷体规则长得一样（见 rules_ui.js 的显示原则）。
+   已验真/已确认用低饱和绿，不抢眼；已证伪才重手（划线 + 红字），因为那是玩家要记住的事。 */
+.rules-item.ok .rules-state { color: #8aa87a; }
+.rules-item.fake { text-decoration: line-through; opacity: 0.85; }
+.rules-item.fake .rules-state { color: #e07a6a; font-weight: bold; }
+.rules-src { color: #8a8272; font-size: 12px; }
+
+/* 本作加：左上角时间 / 地点 / 清醒。右上角仍是校友那颗重新开始。 */
+#hud {
+  position: fixed;
+  top: 15px;
+  left: 20px;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 220px);
+  padding: 8px 14px;
+  color: var(--ash);
+  background: rgba(11, 13, 10, 0.7);
+  border: 1px solid rgba(122, 116, 102, 0.4);
+  border-radius: 20px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  letter-spacing: 1px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+#place-label:empty { display: none; }
+#sleep-track {
+  display: block;
+  width: 72px;
+  height: 4px;
+  background: rgba(122, 116, 102, 0.35);
+  border-radius: 99px;
+  overflow: hidden;
+}
+#sleep-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--phosphor);
+}
+/* 正文是多段，装在 div 里，避免嵌进校友那个 p#scene-text */
+#scene-text p { margin: 0 0 0.85em; }
+#scene-text p:last-child { margin-bottom: 0; }
+/* 没有 src 的图不要去请求当前页面，否则标签页会一直转圈 */
+#scene-image:not([src]),
+#image-viewer-img:not([src]) { display: none; }

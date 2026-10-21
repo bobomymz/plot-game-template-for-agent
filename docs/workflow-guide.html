@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>编写模板 · 结构与操作流程</title>
+<style>
+  :root {
+    --ink: #241c14;
+    --muted: #6d6256;
+    --red: #9c2b2b;
+    --green: #1f4e46;
+    --line: #e4d7c3;
+    --paper: #fffdf8;
+    --bg: #efe6d6;
+    --bad: #f8ebe6;
+    --ok: #e7f2ec;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    font: 16px/1.65 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  ::selection { background: #f0c9c2; }
+  .app { min-height: 100vh; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 16px 28px;
+    align-items: flex-end; justify-content: space-between;
+    padding: 22px 28px 12px;
+  }
+  .eyebrow { margin: 0; letter-spacing: .12em; font-size: 12px; color: var(--red); }
+  h1 { margin: 0; font: 700 28px/1.2 "Palatino Linotype", "Songti SC", "SimSun", serif; }
+  h2 { margin: 0 0 8px; font: 700 26px/1.3 "Palatino Linotype", "Songti SC", "SimSun", serif; }
+  h3 { margin: 0 0 8px; font-size: 16px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; position: relative; }
+  .tools select, .tools input, .ghost, .map-tools input {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+  }
+  .tools input { width: min(280px, 70vw); }
+  .ghost { background: transparent; }
+  #hits {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 5;
+    width: min(420px, 86vw); background: var(--paper); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 12px 30px rgba(60,40,20,.08); padding: 6px;
+  }
+  #hits button { display: block; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; }
+  #hits button:hover { background: #f6efe4; }
+  #hits small { display: block; color: var(--muted); }
+  .bar { height: 3px; background: #e4d8c6; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--red); transition: width .3s ease; }
+  .shell { display: grid; grid-template-columns: 220px 1fr; gap: 8px; padding: 8px 20px 40px; }
+  nav { position: sticky; top: 8px; align-self: start; display: flex; flex-direction: column; gap: 4px; }
+  nav button {
+    text-align: left; background: transparent; border: 0; border-left: 2px solid transparent;
+    padding: 10px 12px; border-radius: 0 10px 10px 0;
+  }
+  nav button.on { border-left-color: var(--red); background: rgba(255,253,248,.85); font-weight: 650; }
+  nav button span { color: var(--muted); font-weight: 400; }
+  main { min-width: 0; }
+  .sheet {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px 22px 22px 26px; position: relative;
+    box-shadow: 0 10px 36px rgba(60,40,20,.05);
+  }
+  .sheet:before {
+    content: ""; position: absolute; left: 10px; top: 16px; bottom: 16px; width: 3px;
+    background: var(--red); border-radius: 2px;
+  }
+  .lead { color: #3d342b; margin-top: 0; }
+  .pills { display: flex; gap: 6px; overflow: auto; padding-bottom: 8px; margin: 0 0 14px; }
+  .pills button, .filters button, .mini {
+    border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 10px; white-space: nowrap;
+  }
+  .pills button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pills button.done { border-color: var(--green); }
+  .pills button.lock { opacity: .45; }
+  .board, .map, .phase, .route, .prio { display: grid; gap: 12px; }
+  .board { grid-template-columns: repeat(3, 1fr); }
+  .map { grid-template-columns: minmax(240px, 340px) 1fr; align-items: start; }
+  .phase { grid-template-columns: 180px 1fr; align-items: start; }
+  .route { grid-template-columns: 200px repeat(5, 1fr); }
+  .prio { grid-template-columns: repeat(3, 1fr); }
+  .col, .file-card, .detail, .round, .layer, .path, .rule, .qcard {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff;
+  }
+  .col { min-height: 180px; }
+  .col.over { outline: 2px dashed var(--red); }
+  .chip { border: 1px dashed var(--line); border-radius: 10px; padding: 8px; margin: 8px 0; background: #fffdf8; }
+  .chip.bad { background: var(--bad); border-style: solid; border-color: #e3b2a8; }
+  .chip.ok { background: var(--ok); border-style: solid; border-color: #b7d4c8; }
+  .chip p { margin: 0 0 6px; }
+  .why { color: var(--red); font-size: 13px; }
+  .paths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .path { text-align: left; width: 100%; }
+  .path.on { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
+  .path b { display: block; font: 700 18px/1.3 "Palatino Linotype", "Songti SC", serif; margin-bottom: 4px; }
+  .muted, small { color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .primary, .mini.on {
+    background: var(--ink); color: #fff; border: 1px solid var(--ink); border-radius: 10px; padding: 8px 14px;
+  }
+  .primary:disabled { opacity: .4; cursor: not-allowed; }
+  .foot { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 16px; }
+  .hint { margin: 8px 0 0; min-height: 1.6em; }
+  .layers { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .layer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .layer.lock { opacity: .55; }
+  .layer.done { background: var(--ok); }
+  .seal {
+    width: 92px; height: 92px; border: 3px solid var(--red); color: var(--red); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; letter-spacing: .14em;
+    transform: rotate(-12deg); margin-left: auto;
+  }
+  .spine { display: flex; flex-direction: column; gap: 6px; }
+  .spine button { text-align: left; border-radius: 10px; border: 1px solid var(--line); background: #fff; padding: 8px 10px; }
+  .spine button.on { background: var(--ink); color: #fff; }
+  pre, code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px; }
+  pre { background: #241c14; color: #f6efe4; padding: 12px; border-radius: 10px; overflow: auto; }
+  .filebtn { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 6px 4px; border-radius: 8px; }
+  .filebtn.on { background: #f6efe4; }
+  .group { margin-top: 8px; }
+  .group > button { background: transparent; border: 0; padding: 4px 0; font-weight: 700; }
+  ul { margin: 8px 0; padding-left: 1.2em; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .filters button.on { background: var(--ink); color: #fff; }
+  .rule { margin: 8px 0; }
+  .rule button.head { width: 100%; text-align: left; background: transparent; border: 0; padding: 0; font-weight: 700; }
+  .opt { display: block; width: 100%; text-align: left; margin: 6px 0; border-radius: 10px; border: 1px solid var(--line); background: #fff; padding: 8px 10px; }
+  .opt.pick-ok { background: var(--ok); border-color: #b7d4c8; }
+  .opt.pick-bad { background: var(--bad); border-color: #e3b2a8; }
+  .peek { display: flex; flex-wrap: wrap; gap: 6px; }
+  .peek button { border-radius: 10px; border: 1px solid var(--line); background: #fff; padding: 8px 10px; }
+  .peek button.on { border-color: var(--red); }
+  footer { padding: 0 28px 28px; color: var(--muted); font-size: 13px; }
+  @media (max-width: 900px) {
+    .shell, .board, .map, .phase, .route, .paths, .prio { grid-template-columns: 1fr; }
+    nav { position: static; flex-direction: row; overflow: auto; }
+    nav button { border-left: 0; border-bottom: 2px solid transparent; white-space: nowrap; }
+    nav button.on { border-bottom-color: var(--red); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <p class="eyebrow">剧情游戏编写模板 · 规则以仓库文档为准</p>
+      <h1>结构与操作流程</h1>
+    </div>
+    <div class="tools">
+      <label>叙事路径
+        <select id="path">
+          <option value="">未选</option>
+          <option value="fixed">固定分支</option>
+          <option value="open">开放世界</option>
+          <option value="hybrid">混合型</option>
+        </select>
+      </label>
+      <input id="q" type="search" placeholder="搜索文件、阶段、规则" autocomplete="off" aria-label="搜索">
+      <div id="hits" hidden></div>
+      <button class="ghost" id="reset" type="button">重置进度</button>
+    </div>
+  </header>
+  <div class="bar" aria-hidden="true"><span id="bar"></span></div>
+  <div class="shell">
+    <nav aria-label="页面">
+      <button type="button" data-view="walk">走一遍 <span id="walk-progress"></span></button>
+      <button type="button" data-view="map">文件地图</button>
+      <button type="button" data-view="phases">六阶段</button>
+      <button type="button" data-view="rules">硬规则</button>
+      <button type="button" data-view="quiz">小测</button>
+    </nav>
+    <main id="stage"></main>
+  </div>
+  <footer>进度记在这台浏览器里。双击本文件即可打开。细则见 CLAUDE.md、docs/templates/templates.md、docs/templates/叙事路径.md。</footer>
+</div>
+<noscript>
+  <p>脚本关闭时仍可记住主干：复制仓库后先做初始化清单，再按「定调 → 真相 → 谜面 → 机制 → 系统 → 结局」过阶段 1，然后骨架四轮审阅、文档自检、技术设计、垂直切片、校验试玩、发布。剧情放 story/，引擎用母本预置的 engine.js（零构建，双击 index.html 即玩）。</p>
+</noscript>
+<script>
+(function () {
+  var KEY = "story-template-guide-v1";
+  var STEPS = [
+    { id: "intro", name: "总览" },
+    { id: "boot", name: "开场阅读" },
+    { id: "roles", name: "分工" },
+    { id: "init", name: "初始化" },
+    { id: "tone", name: "定调" },
+    { id: "layers", name: "五层" },
+    { id: "gate1", name: "阶段1门禁" },
+    { id: "rounds", name: "四轮审阅" },
+    { id: "audit", name: "文档自检" },
+    { id: "build", name: "阶段4顺序" },
+    { id: "route", name: "反馈分流" },
+    { id: "close", name: "收尾" },
+    { id: "done", name: "走完" }
+  ];
+  var BOOT = ["先读 CLAUDE.md", "再读 docs/00-project-state.md", "再读最近 1–3 篇会话日志", "最后只打开这次任务用到的文件"];
+  var ROLE_ITEMS = [
+    { id: "idea", text: "出思路，做门禁决策", who: "user" },
+    { id: "play", text: "试玩，按「版本 / 喜欢 / 问题 / 期望 / 优先级」给反馈", who: "user" },
+    { id: "gate", text: "确认草案之后才放行下一阶段", who: "user" },
+    { id: "doc", text: "写文档、剧情文件，定制母本引擎", who: "agent" },
+    { id: "val", text: "跑校验，记 ADR 和会话日志", who: "agent" },
+    { id: "draft", text: "交草案、自评、门禁清单和待确认问题", who: "agent" }
+  ];
+  var INIT = [
+    { id: "a", text: "删掉模板自带的会话日志和 ADR" },
+    { id: "b", text: "按模板重置 docs/00-project-state.md" },
+    { id: "c", text: "重置 CHANGELOG，只留一行「基于某版工作流模板初始化」" },
+    { id: "d", text: "清空 memory/index.json。story、lore、src、tests 不留模板内容。skeleton 和 reviews 先不预填，review-board.html 留着" },
+    { id: "e", text: "做完后删掉 CLAUDE.md 头部指向初始化清单的那句。dev / build 命令等阶段 3 再填" },
+    { id: "f", text: "路径选定后再裁剪文档，只留所选路径。审阅、自检、审阅页那一节保留" },
+    { id: "g", text: "重新 git init。母本的提交历史和标签不带走" }
+  ];
+  var PATHS = {
+    fixed: { name: "固定分支", fit: "漏斗：前期探索，中期收束，后期集中 3–5 个结局。", use: "适合强因果、层层揭谜。", risk: "要盯住分支爆炸和忘了回收的伏笔。", scale: "首版 3 章 × 每章 15–20 节点，单周目 20–40 分钟。", extra: "阶段 2 交蓝图索引、分章骨架和伏笔台账。公共脊柱走完四轮。" },
+    open: { name: "开放世界", fit: "区域网络。主线横穿各区，区域内自由走。", use: "适合能被到处观测的世界规则。", risk: "要盯住区域长得太像，以及图变成放射形或一条走廊。", scale: "首版 2–4 区域 × 每区域 15–30 节点，另加贯穿主线，单周目 40–60 分钟。", extra: "先写区域方案。骨架过目走第 3–4 轮。先用占位节点把全图走通。" },
+    hybrid: { name: "混合型", fit: "固定分支骨架，加上可以慢慢打开的区域。", use: "适合主线因果清楚，同时又有几块能单独探索的地方。", risk: "骨架上的机制要先够用。不够时回到阶段 1 补派生，区域里另起机制会把设定拆散。", scale: "骨架按固定分支的默认规模，首批 1–2 个扩展区。", extra: "先让公共脊柱走完四轮，并标出扩展地图。区域卡要写明从哪个骨架节点长出来。" }
+  };
+  var FIT = {
+    fixed: "真相若必须靠四处走动才能成立，固定分支会把这种观测收窄。两条都算结论：要么真相本来就是强因果，要么你接受这个风险并写进概念圣经。",
+    open: "真相若是强线性、靠反转揭晓，玩家可能先走到终点。两条都算结论：要么真相适合被到处看到，要么你接受这个风险并写进概念圣经。",
+    hybrid: "主线保持因果链，区域是切片。扩展时若骨架机制撑不住，回到阶段 1 补上派生来源。"
+  };
+  var LAYERS = [
+    { id: "truth", name: "真相", text: "作者视角把因果讲完：实际发生了什么、谁在运作、什么被盖住。摘要 3–5 句。这一层冻结之后，才谈玩法。" },
+    { id: "mystery", name: "谜面", text: "玩家以什么身份进来，开局知道什么、不知道什么，表象怎样误导。" },
+    { id: "mech", name: "机制", text: "核心循环一句话。每条机制注明派生自真相的哪一要素。三个设计支柱都要能追溯回去。" },
+    { id: "sys", name: "系统", text: "属性、好感、线索、时间、资源里，只留真正服务循环的。每个系统一句话理由，明确不做的也写上。" },
+    { id: "end", name: "结局", text: "每个结局和真相是什么关系：揭露、共谋、误解或逃离。写上依赖哪些变量。" }
+  ];
+  var PHASES = [
+    { id: 1, name: "概念与需求", out: ["docs/01-requirements.md 约束和决策索引", "docs/02-concept-bible.md 卖点、真相、支柱、结局"], say: "真相冻结之后才提核心玩法、机制、系统和变量。", gates: [
+      { id: "sell", text: "能用一句话说清卖点" },
+      { id: "order", text: "真相先于谜面和机制冻结" },
+      { id: "pillar", text: "三个支柱都有剧情机制，且能追溯到真相" },
+      { id: "path", text: "叙事路径已定，适配校验写进概念圣经" },
+      { id: "bound", text: "内容边界写明" }
+    ]},
+    { id: 2, name: "剧情框架", out: ["docs/03-story-blueprint.md 只留结构合同", "docs/skeleton/ 节拍、职责、遭遇、装配", "story/variables.js 与 endings.js", "自检通过后才落地的剧情文件"], say: "这一阶段只定结构。正文留到阶段 4，实体长述留在 lore 卡。", gates: [
+      { id: "reach", text: "结局都可达，没有死路和孤岛" },
+      { id: "loop", text: "变量都有来源、变化、用途、结局条件" },
+      { id: "choice", text: "关键选择有看得见的后果" },
+      { id: "pace", text: "单周目节奏落在默认带宽里" },
+      { id: "review", text: "四轮审阅定稿" },
+      { id: "audit", text: "文档自检通过后才写剧情文件" }
+    ]},
+    { id: 3, name: "技术设计", out: ["docs/04-tech-design.md（含母本引擎定制：可选机制挂载、元字段、存档键）", "按本项目扩展 tests/story-validation/validate.js", "CLAUDE.md 里补上 dev / build 命令（零构建范式可省）"], say: "引擎用母本预置件，本阶段只做定制。架构要盖住数据流、存档版本和旧档迁移、部署步骤。大型依赖先确认再用。", gates: [
+      { id: "arch", text: "架构图盖住产出清单和数据流" },
+      { id: "schema", text: "引擎定制项逐一落点，校验脚本能跑通本项目剧情文件" },
+      { id: "deploy", text: "部署平台和步骤已点名" },
+      { id: "deps", text: "没有未经确认的大型依赖" }
+    ]},
+    { id: 4, name: "实现切片", out: ["docs/05-style-guide.md", "index.html / style.css 换肤定制", "一个可玩的垂直切片"], say: "顺序是：文档自检、冻结文风、换肤定制、做切片、试玩，然后再扩展。引擎不重写。", gates: [
+      { id: "style", text: "文风指南已冻结" },
+      { id: "slice", text: "垂直切片可玩" },
+      { id: "cycle", text: "核心循环成立：阅读、选择、状态变化、新信息、再选择" }
+    ]},
+    { id: 5, name: "测试与试玩", out: ["tests/reports/ 里的校验记录", "按 P0 / P1 / P2 分流的反馈"], say: "校验全过，试玩没有逻辑断裂，再进入发布。", gates: [
+      { id: "green", text: "自动校验全部通过" },
+      { id: "p", text: "没有未处理的 P0 和 P1" },
+      { id: "play", text: "试玩没有逻辑断裂" }
+    ]},
+    { id: 6, name: "发布与迭代", out: ["部署链接", "CHANGELOG.md", "冻结版本的 git 标签"], say: "新章节、新区域、新结局或新系统发布之后，回到阶段 5 收集反馈。", gates: [
+      { id: "url", text: "部署链接可用" },
+      { id: "log", text: "CHANGELOG 已更新" },
+      { id: "tag", text: "该打的版本标签已打" }
+    ]}
+  ];
+  var PATH_NOTE = {
+    fixed: { 2: "另外要有伏笔台账 story/foreshadow.js。结局阈值先用图遍历算出单周目判据上限，再定数字。", 3: "校验脚本要能产出伏笔回收矩阵。", 4: "按章扩写。每章先出场景表，再写正文。埋下伏笔的当下就登记。", 5: "额外核对：每条伏笔有回收或显式红鲱鱼；选择注释和变量表一致；单周目判据上限不低于结局阈值。", 6: "新章节发布后回到阶段 5。" },
+    open: { 2: "每区一份区域方案。图要先联通：死链 0、死胡同 0、连通块核心 1、核心区环秩至少 2。", 3: "写明全局触发器、过夜分支、位置三级（区域 / 地点 / 精确位置）。审计脚本以加载入口为文件清单，不把文件名写死。", 4: "按区域四步走：定位、骨架、主线、迭代。新区域要同时补上时间或过夜分支。", 5: "额外核对区域可达、占位 stub 有登记、过夜触发器覆盖已实装区域、差异矩阵和内容一致。", 6: "逐区扩展，每区发布后回到阶段 5。" },
+    hybrid: { 2: "骨架先过固定分支的门禁，并在蓝图里留下扩展地图。区域遭遇写入 skeleton/region-名.md。", 3: "先满足固定分支的技术点。区域打开之后再补地图感知。", 4: "先完成骨架，再逐区走开放世界的四步。", 5: "骨架过固定分支清单，每个已扩展区域过开放世界清单。", 6: "区域扩展按混合型规则逐区进行，发布后回到阶段 5。" }
+  };
+  var ROUNDS = [
+    { id: "r1", name: "第 1 轮 · 节拍条", pack: "6–8 拍。每拍两行：玩家在干什么；这一拍怕的是哪一件事。", choices: [
+      { id: "b", ok: false, text: "把这一拍写成可以上线的正文", why: "正文属于阶段 4。这一轮只看拍的长短，以及相邻两拍是不是在怕同一件事。" },
+      { id: "a", ok: true, text: "哪一拍过长、过短，或和邻拍怕的是同一件事", why: "对。本轮只判断节拍。" }
+    ]},
+    { id: "r2", name: "第 2 轮 · 职责表", pack: "地点一行职责，角色一行槽位，注明挂在哪一拍。角色不写小传。", choices: [
+      { id: "a", ok: true, text: "删掉此人之后哪一拍会空；空不了就删掉这个槽位", why: "对。这一轮只判断职责还在不在。" },
+      { id: "b", ok: false, text: "补全这个角色的身世小传", why: "小传不进骨架。实体长述以后写在 lore 卡。" }
+    ]},
+    { id: "r3", name: "第 3 轮 · 遭遇卡", pack: "一次一张：节拍、地点、槽位、一个决定、两个选项各改哪个变量。规则用编号引用。", choices: [
+      { id: "b", ok: false, text: "把世界规则全文抄进这张卡", why: "规则全文在概念圣经或 lore。骨架只引用编号。" },
+      { id: "a", ok: true, text: "留下、删掉、换到别的拍，或改这个决定的方向", why: "对。本轮只判断这张卡的去留和决定方向。" }
+    ]},
+    { id: "r4", name: "第 4 轮 · 装配核对", pack: "确认过的卡写进该章或该区的装配图。跨章、跨区的边写进 skeleton/index.md。", choices: [
+      { id: "b", ok: false, text: "重新讨论一句话卖点", why: "卖点属于阶段 1。这一轮只核对装配有没有装错。" },
+      { id: "a", ok: true, text: "哪张卡装错了拍，哪条选择和已经确认的卡不一致", why: "对。本轮只做装配核对。" }
+    ]}
+  ];
+  var ORDER_OK = ["doc", "style", "engine", "slice", "play", "expand"];
+  var ORDER_LABEL = {
+    doc: "文档自检（叙事路径.md §6.2）",
+    style: "冻结文风指南",
+    engine: "换肤定制引擎",
+    slice: "做首个垂直切片",
+    play: "你来试玩",
+    expand: "再扩展章节或区域"
+  };
+  var ROUTES = [
+    { id: "a", text: "卖点一句话说不清", stage: "1" },
+    { id: "b", text: "第二章的选择看不出后果", stage: "2" },
+    { id: "c", text: "存档要不要多槽位，设计还没定", stage: "3" },
+    { id: "d", text: "对白口吻和文风指南不一致", stage: "4" },
+    { id: "e", text: "校验报告里有死路节点", stage: "5" },
+    { id: "f", text: "想把首版从 3 章加到 8 章", stage: "1" }
+  ];
+  var PRIOS = [
+    { id: "a", text: "选项点了没有反应，这一章进行不下去", p: "P0", say: "P0 马上修。" },
+    { id: "b", text: "这一章偏拖，但能玩完，本轮应该改", p: "P1", say: "P1 放进当前这一轮。" },
+    { id: "c", text: "希望以后能看一张历程图鉴", p: "P2", say: "P2 记进待办。" }
+  ];
+  var LEVELS = [
+    { name: "L0 风味", desc: "只改说法。状态不变，后面的路也不变。" },
+    { name: "L1 即时", desc: "当场有反馈。离开这个节点就不留痕。" },
+    { name: "L2 变量", desc: "改一个变量。变量表里写上来源、变化、用途、结局条件。" },
+    { name: "L3 解锁", desc: "后面有一段内容因为这次选择才出现。" },
+    { name: "L4 结局", desc: "这次选择参与结局分歧。" }
+  ];
+  var LOOPS = [
+    { id: "src", name: "来源", desc: "哪个节点、哪次选择让它出现。" },
+    { id: "chg", name: "变化", desc: "onEnter 直改或 { set / add / mul }，登记进 changes 节点列表。" },
+    { id: "use", name: "用途", desc: "后面哪段剧情会读它。" },
+    { id: "end", name: "结局条件", desc: "endings.js 里哪条结局用它做判断。" }
+  ];
+  var RULES = [
+    { id: "split", title: "剧情和引擎分开", body: "剧情放在 story/ 的 .js 对象字面量里，按章、幕或区域分文件。引擎只解析和运行。节点可以有行内注释和少量路由函数，数据仍要能被校验脚本加载。" },
+    { id: "order", title: "先概念，再结构，后文本", body: "结构没冻结，不扩写全文。阶段 1 内部先真相，后玩法。" },
+    { id: "slice", title: "先做一个能玩的切片", body: "固定分支和混合型先做第一章骨架。开放世界先做一个区域。核心循环成立之后再扩展。" },
+    { id: "gate", title: "每阶段都有门禁", body: "Agent 交草案、自评、门禁清单和待确认问题。你确认之后才进入下一阶段。" },
+    { id: "route", title: "反馈按阶段分流", body: "概念和范围回阶段 1，结构调整回阶段 2，系统交互回阶段 3，对白回阶段 4，漏洞和校验回阶段 5。一次反馈改一处，不把几层混在同一次修改里。" },
+    { id: "id", title: "节点只写实体 ID", body: "角色、地点写成 char_xx、loc_xx。展示名放在实体卡或 characters.js。" },
+    { id: "log", title: "改动写进 CHANGELOG", body: "每次修改更新 CHANGELOG.md。冻结版本打 git 标签，例如 v0.1-concept。" },
+    { id: "draft", title: "新设定先标 draft", body: "你确认之后升为 frozen。和已经冻结的设定冲突时停下，列出冲突表，由你裁决，裁决记入 ADR。" },
+    { id: "budget", title: "CLAUDE.md 保持短", body: "上限大约 150 行。新规则写进 docs/，总纲里留一行指针。" }
+  ];
+  var FILES = [
+    { id: "claude", path: "CLAUDE.md", group: "总纲", phases: ["all"], keys: "总纲 门禁 会话", what: "协作总纲。每会话开始先读。", more: "上限大约 150 行。阶段规则的细节在 docs/templates/。" },
+    { id: "changelog", path: "CHANGELOG.md", group: "总纲", phases: ["all", "6"], keys: "版本", what: "每次修改都记一笔。", more: "新项目初始化时清空，只留一行基于哪一版模板。" },
+    { id: "guide", path: "docs/workflow-guide.html", group: "总纲", phases: ["all"], keys: "说明页 本页", what: "就是现在这份说明。", more: "双击用浏览器打开。进度存在本地，不写回仓库。" },
+    { id: "state", path: "docs/00-project-state.md", group: "阶段产出", phases: ["all"], keys: "状态 冻结", what: "当前阶段、版本、已冻结、待确认、下一步。", more: "会话开始要读，会话结束要写回。" },
+    { id: "req", path: "docs/01-requirements.md", group: "阶段产出", phases: ["1"], keys: "需求 定调", what: "只放约束和决策索引。", more: "设计正文放进概念圣经，同一设定只留一个主文件。" },
+    { id: "bible", path: "docs/02-concept-bible.md", group: "阶段产出", phases: ["1"], keys: "真相 支柱 卖点", what: "概念圣经。真相摘要放在篇首。", more: "含叙事路径和真相适配校验的结论。" },
+    { id: "blue", path: "docs/03-story-blueprint.md", group: "阶段产出", phases: ["2"], keys: "蓝图 结构合同", what: "阶段 2 的结构合同。", more: "节拍、职责、遭遇、装配图不写在这里，它们在 docs/skeleton/。" },
+    { id: "tech", path: "docs/04-tech-design.md", group: "阶段产出", phases: ["3"], keys: "架构 存档", what: "架构、数据模型、母本引擎定制、界面、存档、部署、测试策略。", more: "存档要写格式版本号和旧档怎么迁移；引擎定制含挂载、元字段、存档键。" },
+    { id: "style", path: "docs/05-style-guide.md", group: "阶段产出", phases: ["4"], keys: "文风 对白", what: "一页文风指南。扩写和换会话续写都按它对齐。", more: "阶段 4 扩写正文之前冻结。" },
+    { id: "skel-i", path: "docs/skeleton/index.md", group: "骨架与审阅", phases: ["2"], keys: "跨章 跨区", what: "只记跨章或跨区的边。", more: "出现第一条跨单位跳转时才建。单位内部的跳转留在各章、各区自己的装配图。" },
+    { id: "skel-ch", path: "docs/skeleton/chN-短名.md", group: "骨架与审阅", phases: ["2"], keys: "节拍 职责 遭遇 装配", what: "固定分支的一章，或混合型公共脊柱的一章。", more: "四段都写：节拍条、职责表、遭遇卡、装配图。N 和剧情文件的章号一致。" },
+    { id: "skel-r", path: "docs/skeleton/region-名.md", group: "骨架与审阅", phases: ["2"], keys: "区域骨架", what: "开放世界或混合型扩展区的遭遇和装配。", more: "定位和差异声明留在区域方案。这个区若有自己的公共脊柱，四段都写。" },
+    { id: "tpl", path: "docs/templates/templates.md", group: "骨架与审阅", phases: ["all"], keys: "模板 节点 schema 变量", what: "共享模板：状态、日志、ADR、节点、变量、结局、初始化清单、引擎接口。", more: "推进一律 choices：单选项即线性，多选项同目标是风味；无 choices 即终点。" },
+    { id: "narr", path: "docs/templates/叙事路径.md", group: "骨架与审阅", phases: ["all"], keys: "开放世界 固定分支 混合 四轮 自检", what: "三条叙事路径在阶段 2–6 的单一规则来源。", more: "审阅、自检、审阅页在 §6，三条路径都保留。" },
+    { id: "board", path: "docs/templates/review-board.html", group: "骨架与审阅", phases: ["2", "5"], keys: "审阅页 标注", what: "成批裁决的空壳。", more: "复制到 docs/reviews/ 再填 JSON。母本里这份壳要留着。" },
+    { id: "reviews", path: "docs/reviews/", group: "骨架与审阅", phases: ["2", "5"], keys: "标注 json", what: "某一次审阅页和导出的标注。", more: "需要裁决的矛盾或剧情 bug 达到 3 条才生成。1–2 条在对话里问。" },
+    { id: "regions", path: "docs/regions/区域方案-名.md", group: "骨架与审阅", phases: ["2"], keys: "入口契约 差异", what: "开放世界或混合型的单区方案。", more: "含定位、差异声明、入口契约。场景清单只留一行，指向骨架文件。" },
+    { id: "adr", path: "docs/decisions/ADR-*.md", group: "骨架与审阅", phases: ["all"], keys: "决策 否决", what: "重要决策和被否决的方案。", more: "和冻结设定冲突时，裁决记在这里。" },
+    { id: "sessions", path: "docs/sessions/", group: "骨架与审阅", phases: ["all"], keys: "会话日志", what: "一次会话做了什么、你拍了什么、还剩什么。", more: "文件名 YYYY-MM-DD-NN-主题.md。会话结束时写。" },
+    { id: "index", path: "memory/index.json", group: "记忆", phases: ["all"], keys: "索引 实体", what: "实体 ID 指向文件、状态和摘要。", more: "先查索引再新建。同一设定只有一个主文件。" },
+    { id: "lore", path: "lore/**/*.yaml", group: "记忆", phases: ["1", "4"], keys: "角色 地点 事件", what: "角色、地点、事件卡。设定变多时才建。", more: "阶段 5 会核对索引和卡的状态是否一致。" },
+    { id: "vars", path: "story/variables.js", group: "剧情与代码", phases: ["2", "5"], keys: "变量 闭环 双层", what: "变量对账表。每项都要闭环。", more: "运行时初值在 00core.js 的 _variables，本表给校验对账。语义写在 desc，值域写 min / max。" },
+    { id: "endings", path: "story/endings.js", group: "剧情与代码", phases: ["2", "5"], keys: "结局", what: "结局条件的唯一主文件。", more: "蓝图只做索引，条件不在蓝图里重写一遍。" },
+    { id: "chars", path: "story/characters.js", group: "剧情与代码", phases: ["2"], keys: "角色名", what: "展示名和实体 ID 的对照。", more: "节点里写 char_xx。界面要显示的名字放在这里。" },
+    { id: "fore", path: "story/foreshadow.js", group: "剧情与代码", phases: ["2", "4", "5"], keys: "伏笔 红鲱鱼", what: "固定分支和混合型的伏笔台账。", more: "埋下时登记，收回时改状态。刻意不回收的标 herring，并写明意图。" },
+    { id: "nodes", path: "story/*.js", group: "剧情与代码", phases: ["2", "4"], keys: "节点 next choices", what: "剧情节点。自检通过之后才从骨架落地。", more: "允许行内注释：伏笔、选择影响、文件头结构图。" },
+    { id: "engine", path: "engine.js · index.html · style.css", group: "剧情与代码", phases: ["3", "4"], keys: "引擎 起步包 零构建", what: "母本预置参考引擎（ADR-0010），源自 930 实战。", more: "零构建，双击 index.html 即玩。项目机制在 story 层实现，不改引擎核心；接口速查见 templates.md §14。" },
+    { id: "val", path: "tests/story-validation/validate.js", group: "剧情与代码", phases: ["2", "3", "5"], keys: "校验 死路 节奏", what: "母本自带的校验：schema、图遍历、节奏粗检。", more: "阶段 2 起可以跑。阶段 3 按项目加规则。阶段 5 全量跑，并把报告放进 tests/reports/。" },
+    { id: "mini", path: "tests/story-validation/fixtures/mini", group: "剧情与代码", phases: ["3", "5"], keys: "冒烟", what: "一份应该全绿的迷你样例。", more: "用来确认校验脚本本身还能跑。" }
+  ];
+  var GROUPS = ["总纲", "阶段产出", "骨架与审阅", "记忆", "剧情与代码"];
+  var CONCEPTS = [
+    { id: "c-rounds", title: "四轮审阅", sub: "节拍、职责、遭遇、装配", view: "walk", stepId: "rounds", phase: 2 },
+    { id: "c-layers", title: "阶段 1 五层", sub: "真相到结局", view: "walk", stepId: "layers", phase: 1 },
+    { id: "c-audit", title: "文档自检", sub: "满 3 条做审阅页", view: "walk", stepId: "audit", phase: 2 },
+    { id: "c-route", title: "反馈分流", sub: "改动回到对应阶段", view: "walk", stepId: "route", phase: 1 },
+    { id: "c-rules", title: "九条硬规则", sub: "全程有效", view: "rules" },
+    { id: "c-map", title: "文件地图", sub: "仓库里各文件何时出现", view: "map" },
+    { id: "c-quiz", title: "小测", sub: "六题", view: "quiz" },
+    { id: "c-phases", title: "六阶段", sub: "产出和门禁", view: "phases" }
+  ];
+  var QUIZ = [
+    { q: "真相还没冻结时，核心玩法放在哪一层谈？", options: ["放在真相层一起定", "等真相冻结之后，到机制层再谈"], a: 1, why: "玩法从真相派生。真相层先把因果讲完。" },
+    { q: "需要你裁决、又不能用冻结文档压过草案的矛盾，达到几条才做审阅页？", options: ["1 条就做", "3 条", "全部留到阶段 5"], a: 1, why: "1–2 条在对话里问完，写进会话日志。满 3 条复制审阅页。" },
+    { q: "装配图放在哪里？", options: ["写满在 03-story-blueprint.md", "docs/skeleton/ 按章或按区域", "写进引擎代码"], a: 1, why: "蓝图只留结构合同。跨单位的边另外写在 skeleton/index.md。" },
+    { q: "剧情节点怎样指向一个角色？", options: ["把中文名写死在节点里", "写实体 ID，例如 char_xx"], a: 1, why: "名字放在实体卡或 characters.js。节点只引用 ID。" },
+    { q: "阶段 4 开工时，第一件事是？", options: ["先重写引擎", "先做文档自检", "先把第一章正文扩完"], a: 1, why: "顺序是文档自检、文风指南、换肤定制、垂直切片、试玩。引擎是预置的，不重写。" },
+    { q: "会话结束时，你说出哪一句，Agent 才写回记忆并提交？", options: ["保存一下", "结束会话，写回记忆并提交", "提交并推送到远程"], a: 1, why: "写回的是项目状态、会话日志、索引和 CHANGELOG，然后 git 提交。冻结版本再打标签。" }
+  ];
+  var NODE_DEMO = {
+    next: '{\n  "ch1_03": {\n    text: "……",\n    choices: [\n      { text: "往前走", nextScene: "ch1_04" }   // 单选项＝线性推进\n    ]\n  }\n}',
+    choices: '{\n  "ch1_08": {\n    text: "……",\n    choices: [\n      // 选择影响：拦住 → trust_xx+1（E3 判据）\n      { text: "拦住", effect: { add: { trust_xx: 1 } },\n        nextScene: "ch1_09" },\n      { text: "让开", nextScene: "ch1_10" }\n    ]\n  }\n}',
+    ending: '{\n  "结局_真相": {\n    text: "……—— 结局：真相"\n    // 没有 choices 即终点，\n    // ID 以「结局」开头，\n    // 并被 endings.js 收为入口\n}'
+  };
+  var CMD = "node tests/story-validation/validate.js";
+  var CMD_MINI = "node tests/story-validation/validate.js tests/story-validation/fixtures/mini";
+
+  function fresh() {
+    var groups = {};
+    GROUPS.forEach(function (g) { groups[g] = true; });
+    return {
+      v: 1, view: "walk", step: 0, path: "", toneSeen: false, boot: 0,
+      roles: {}, init: {}, layers: {}, fit: false, trap: "", layerMsg: "",
+      ticks: {}, rounds: {}, rework: "", roundCursor: 0,
+      auditN: 1, auditSeen3: false, auditOk: false,
+      order: ["expand", "engine", "style", "play", "doc", "slice"],
+      routes: {}, routePick: "",
+      prio: {}, prioPick: "",
+      closed: false, blocked: "",
+      phase: 1, level: 2, loop: {}, loopLast: "", nodeMode: "choices",
+      file: "claude", phaseFilter: "all", mapQuery: "", groups: groups, rule: "split",
+      quiz: { n: 0, pick: null, score: 0, over: false }
+    };
+  }
+  function normalize(raw) {
+    var base = fresh();
+    if (!raw || raw.v !== 1) return base;
+    Object.keys(base).forEach(function (k) {
+      if (raw[k] === undefined) return;
+      if (base[k] && typeof base[k] === "object" && !Array.isArray(base[k])) base[k] = Object.assign(base[k], raw[k]);
+      else base[k] = raw[k];
+    });
+    if (!Array.isArray(base.order) || base.order.length !== ORDER_OK.length) base.order = fresh().order;
+    if (["walk", "map", "phases", "rules", "quiz"].indexOf(base.view) < 0) base.view = "walk";
+    if (base.step < 0 || base.step >= STEPS.length) base.step = 0;
+    GROUPS.forEach(function (g) { if (base.groups[g] === undefined) base.groups[g] = true; });
+    return base;
+  }
+  function load() {
+    try { return normalize(JSON.parse(localStorage.getItem(KEY))); }
+    catch (e) { return fresh(); }
+  }
+  var S = load();
+  var forceTop = false;
+  function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function fileById(id) { return FILES.filter(function (f) { return f.id === id; })[0]; }
+  function stepReady(id) {
+    if (id === "intro") return true;
+    if (id === "done") return stepReady("close");
+    if (id === "boot") return S.boot >= BOOT.length;
+    if (id === "roles") return ROLE_ITEMS.every(function (it) { return S.roles[it.id] === it.who; });
+    if (id === "init") return INIT.every(function (it) { return !!S.init[it.id]; });
+    if (id === "tone") return !!S.path && S.toneSeen;
+    if (id === "layers") return LAYERS.every(function (L) { return !!S.layers[L.id]; }) && S.fit;
+    if (id === "gate1") return PHASES[0].gates.every(function (g) { return !!S.ticks["1:" + g.id]; });
+    if (id === "rounds") return ROUNDS.every(function (r) {
+      var c = r.choices.filter(function (x) { return x.id === S.rounds[r.id]; })[0];
+      return c && c.ok;
+    }) && S.rework === "beat";
+    if (id === "audit") return S.auditOk && S.auditSeen3;
+    if (id === "build") return ORDER_OK.every(function (id2, i) { return S.order[i] === id2; });
+    if (id === "route") return ROUTES.every(function (r) { return S.routes[r.id] === r.stage; });
+    if (id === "close") return !!S.closed;
+    return false;
+  }
+  function canOpen(i) {
+    for (var k = 0; k < i; k++) if (!stepReady(STEPS[k].id)) return false;
+    return true;
+  }
+  function clampStep() {
+    var blocked = -1;
+    for (var i = 0; i < STEPS.length; i++) if (!stepReady(STEPS[i].id)) { blocked = i; break; }
+    var max = blocked === -1 ? STEPS.length - 1 : blocked;
+    if (S.step > max) S.step = max;
+  }
+  function doneCount() {
+    return STEPS.filter(function (s) { return s.id !== "intro" && stepReady(s.id); }).length;
+  }
+  function hintFor(id) {
+    if (stepReady(id) && id !== "done") return "这一步齐了，可以进入下一步。方向键也能切换。";
+    if (id === "boot") return "按从上到下的顺序点。点错会停在当前这一份。";
+    if (id === "roles") return "每一项放到对的一边。可以拖，也可以点按钮。";
+    if (id === "init") return "七项都勾上，表示新项目复制之后你记得先做这些。";
+    if (id === "tone") return S.path ? "看完这三种路径的卡片，再继续。" : "先选定一种叙事路径。";
+    if (id === "layers") {
+      for (var i = 0; i < LAYERS.length; i++) if (!S.layers[LAYERS[i].id]) return "从真相开始逐层确认。页上那个提前提问的按钮可以随时试。";
+      return "两种适配结论都算数，选一个写进概念圣经。";
+    }
+    if (id === "gate1") return "五项门禁都勾上。这些勾选和「六阶段」里的阶段 1 是同一份。";
+    if (id === "rounds") return "每一轮只选该轮要你回答的那一句，最后选对返工范围。";
+    if (id === "audit") return "把条数加到 3，看审阅页在什么时候出现，再点「记下了」。";
+    if (id === "build") return "排成阶段 4 的开工顺序。可以拖动，也可以上移下移。";
+    if (id === "route") return "先点一条反馈，再点它该回的阶段。范围变化回到阶段 1。";
+    if (id === "close") return "点那句收尾口令。Agent 才会写回记忆并提交。";
+    return "";
+  }
+  function layerUnlocked(id) {
+    var idx = 0;
+    LAYERS.forEach(function (L, i) { if (L.id === id) idx = i; });
+    if (idx === 0) return true;
+    return !!S.layers[LAYERS[idx - 1].id];
+  }
+  function trapHtml() {
+    if (S.trap === "block") return "<p class='why'>真相还没冻结。这一问先停，玩法要等因果链写完再派生。</p>";
+    if (S.trap === "mystery") return "<p class='why'>真相已经过了。下一层是谜面。机制等谜面确认后再问。</p>";
+    if (S.trap === "ok") return "<p class='why' style='color:var(--green)'>可以问了。每条机制写清它从真相的哪一要素派生。</p>";
+    return "";
+  }
+  function auditText() {
+    if (S.auditN >= 3) return "达到 3 条：复制 review-board.html 到 docs/reviews/，做成审阅页。你逐条标「要改 / 不用改 / 以后再改」并导出 JSON。Agent 只读那份 JSON 再改文件。标注里还有未看的，或「要改」还没落地，自检就不算过。";
+    return "目前是 " + S.auditN + " 条：在对话里问完，写进当次会话日志，不另做审阅页。";
+  }
+  function pathNote(phase) {
+    if (!S.path) return "页眉或「定调」里选定叙事路径之后，这里会换成该路径在这一阶段要多做的事。";
+    return PATHS[S.path].name + "：" + (PATH_NOTE[S.path][phase] || "这一阶段三条路径的要求相同。");
+  }
+  function visibleFiles() {
+    var q = S.mapQuery.trim().toLowerCase();
+    return FILES.filter(function (f) {
+      if (S.phaseFilter !== "all" && f.phases.indexOf(S.phaseFilter) < 0) return false;
+      if (!q) return true;
+      return (f.path + f.what + f.more + f.keys).toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  function mapItemsHtml() {
+    var vis = visibleFiles();
+    return GROUPS.map(function (g) {
+      var items = vis.filter(function (f) { return f.group === g; });
+      if (!items.length) return "";
+      var open = S.groups[g] !== false;
+      return "<div class='group'><button type='button' data-act='group' data-g='" + esc(g) + "'>" + (open ? "▾ " : "▸ ") + esc(g) + "</button>" +
+        (open ? items.map(function (f) {
+          return "<button type='button' class='filebtn" + (f.id === S.file ? " on" : "") + "' data-act='file' data-id='" + f.id + "'>" + esc(f.path) + "</button>";
+        }).join("") : "") + "</div>";
+    }).join("");
+  }
+  function fileDetailHtml() {
+    var f = fileById(S.file) || FILES[0];
+    var extra = "";
+    if (f.id === "nodes") {
+      extra = "<div class='row'>" +
+        ["next", "choices", "ending"].map(function (m) {
+          var label = { next: "推进（单选项）", choices: "选项 choices", ending: "结局入口" }[m];
+          return "<button type='button' class='mini" + (S.nodeMode === m ? " on" : "") + "' data-act='nodemode' data-mode='" + m + "'>" + label + "</button>";
+        }).join("") + "</div><pre>" + esc(NODE_DEMO[S.nodeMode] || NODE_DEMO.choices) + "</pre>" +
+        "<p class='muted'>进入条件写在 conditions。两个跳转字段都空时，这个节点就是结局入口。</p>";
+    }
+    if (f.id === "val") {
+      extra = "<pre>" + esc(CMD + "\n" + CMD_MINI) + "</pre><button type='button' class='mini' data-act='copy' data-copy='" + esc(CMD) + "'>复制校验命令</button>";
+    }
+    if (f.id === "vars") {
+      extra = "<p><button type='button' class='mini' data-act='jump' data-view='phases' data-phase='2'>去六阶段里点亮四项闭环</button></p>";
+    }
+    return "<h3>" + esc(f.path) + "</h3><p>" + esc(f.what) + "</p><p>" + esc(f.more) + "</p>" +
+      "<p class='muted'>相关阶段：" + esc(f.phases.indexOf("all") >= 0 ? "全程" : f.phases.map(function (p) { return "阶段 " + p; }).join("、")) + "</p>" + extra;
+  }
+  function roleChip(it) {
+    var who = S.roles[it.id] || "";
+    var bad = who && who !== it.who;
+    var why = bad ? (who === "user" ? "这件由 Agent 做。" : "这件由你拍板。") : "";
+    return "<article class='chip" + (bad ? " bad" : who ? " ok" : "") + "' draggable='true' data-role-id='" + it.id + "'><p>" + esc(it.text) + "</p><span class='row'>" +
+      "<button type='button' class='mini' data-act='role' data-id='" + it.id + "' data-who='user'>你</button>" +
+      "<button type='button' class='mini' data-act='role' data-id='" + it.id + "' data-who='agent'>Agent</button>" +
+      "<button type='button' class='mini' data-act='role' data-id='" + it.id + "' data-who='pool'>拿回</button></span>" +
+      (why ? "<p class='why'>" + esc(why) + "</p>" : "") + "</article>";
+  }
+  function pillsHtml() {
+    return "<div class='pills'>" + STEPS.map(function (s, i) {
+      var cls = (i === S.step ? " on" : "") + (stepReady(s.id) && i !== S.step ? " done" : "") + (canOpen(i) ? "" : " lock");
+      return "<button type='button' class='" + cls + "' data-act='goto' data-step='" + i + "'>" + (i + 1) + " " + esc(s.name) + "</button>";
+    }).join("") + "</div>";
+  }
+  function walkHtml() {
+    var id = STEPS[S.step].id;
+    var body = "";
+    if (id === "intro") {
+      body = "<h2>这套模板怎么用</h2><p class='lead'>仓库是可复用的母本，里面没有具体游戏。新项目复制整套文档，从阶段 1 做起。你出思路、做门禁、试玩。Agent 写文档、剧情、代码和校验。</p>" +
+        "<p>左边可以随时改去查目录。下面这条路按真实顺序走，当前步骤做完才能打开后面的步骤。</p>" +
+        "<div class='peek'>" + PHASES.map(function (p) {
+          return "<button type='button' class='" + (S.phase === p.id ? "on" : "") + "' data-act='peek' data-phase='" + p.id + "'>" + p.id + " " + esc(p.name) + "</button>";
+        }).join("") + "</div><p>" + esc(PHASES.filter(function (p) { return p.id === S.phase; })[0].say) + "</p>";
+    } else if (id === "boot") {
+      body = "<h2>每次开工先读这四份</h2><p class='lead'>读完用几句话复述：当前阶段、已经冻结的内容、还待确认的问题、这次要做的事。你确认之后，Agent 再开工。</p>" +
+        BOOT.map(function (t, i) {
+          var cls = i < S.boot ? "ok" : "";
+          return "<button type='button' class='opt " + cls + "' data-act='boot' data-n='" + i + "'>" + (i < S.boot ? "已读 · " : "") + esc(t) + "</button>";
+        }).join("") +
+        (S.boot >= BOOT.length ? "<p>四份按顺序过了一遍。复述完再动手。</p>" : "<p class='muted'>现在要点第 " + (S.boot + 1) + " 份。" + (S.bootMsg ? " " + esc(S.bootMsg) : "") + "</p>");
+    } else if (id === "roles") {
+      var cols = { pool: "", user: "", agent: "" };
+      ROLE_ITEMS.forEach(function (it) {
+        var who = S.roles[it.id];
+        cols[who === "user" || who === "agent" ? who : "pool"] += roleChip(it);
+      });
+      body = "<h2>谁做什么</h2><p class='lead'>你不写代码、不改配置。Agent 不替你做门禁确认。</p><div class='board'>" +
+        "<div class='col' data-drop='pool'><h3>待归类</h3>" + (cols.pool || "<p class='muted'>都分完了</p>") + "</div>" +
+        "<div class='col' data-drop='user'><h3>你来做</h3>" + cols.user + "</div>" +
+        "<div class='col' data-drop='agent'><h3>Agent 来做</h3>" + cols.agent + "</div></div>";
+    } else if (id === "init") {
+      body = "<h2>复制之后先清场</h2><p class='lead'>清单在 templates.md §9。勾选表示你记得，不是这台机器已经做过。</p>" +
+        INIT.map(function (it) {
+          return "<label class='check'><input type='checkbox' data-act='init' data-id='" + it.id + "'" + (S.init[it.id] ? " checked" : "") + "> <span>" + esc(it.text) + "</span></label>";
+        }).join("") +
+        "<p class='muted'>全仓用 UTF-8 和 LF。定调选定路径之后才裁剪文档，初始化当时不裁。</p>";
+    } else if (id === "tone") {
+      body = "<h2>定调时选定叙事路径</h2><p class='lead'>三条里选一条。真相冻结之后再做一次适配校验，结论写进概念圣经。</p><div class='paths'>" +
+        Object.keys(PATHS).map(function (k) {
+          var p = PATHS[k];
+          return "<button type='button' class='path" + (S.path === k ? " on" : "") + "' data-act='path' data-path='" + k + "'><b>" + esc(p.name) + "</b><span>" + esc(p.fit) + "</span><br><span class='muted'>" + esc(p.use) + "</span><br><span>" + esc(p.risk) + "</span><br><span class='muted'>" + esc(p.scale) + "</span></button>";
+        }).join("") + "</div>" +
+        (S.path ? "<p>选定之后，这一路径在阶段 2 的要点：" + esc(PATHS[S.path].extra) + " 网页上共性要有历史、存档、回溯、多周目、成就。开放世界另外要位置和地图感知，放到阶段 3 定。</p>" : "");
+    } else if (id === "layers") {
+      body = "<h2>阶段 1 按层往下问</h2><p class='lead'>定调已经在上一步完成。上层得到你的确认之后，才问下一层。你主动先聊后面的层可以先记下来，问完仍回到当前层。</p><div class='layers'>" +
+        LAYERS.map(function (L) {
+          var open = layerUnlocked(L.id);
+          var done = !!S.layers[L.id];
+          return "<article class='layer" + (done ? " done" : open ? "" : " lock") + "'><div><b>" + esc(L.name) + "</b><p>" + esc(L.text) + "</p></div><div>" +
+            (done ? "<button type='button' class='mini' data-act='unlayer' data-id='" + L.id + "'>撤回本层及之后</button>" : "<button type='button' class='primary' data-act='layer' data-id='" + L.id + "'" + (open ? "" : " disabled") + ">确认这一层</button>") +
+            "</div></article>";
+        }).join("") + "</div>" +
+        (S.layerMsg ? "<p class='why'>" + esc(S.layerMsg) + "</p>" : "") +
+        "<button type='button' class='ghost' data-act='trap'>现在就问：核心玩法是什么？</button>" + trapHtml() +
+        (S.layers.truth ? "<div class='detail'><h3>真相适配</h3><p>" + esc(FIT[S.path] || FIT.fixed) + "</p><div class='row'><button type='button' class='mini" + (S.fit ? " on" : "") + "' data-act='fit'>这个结论我接受，写进概念圣经</button></div></div>" : "") +
+        "<p class='muted'>已经拍板的层只记决定，最多再留 1 个对照方案。你说要商量时，才并列 3 个方案并自评。你若先抛出一个玩法，先反推什么样的真相必然会生出这个玩法。</p>";
+    } else if (id === "gate1") {
+      var g = PHASES[0];
+      body = "<h2>阶段 1 门禁</h2><p class='lead'>五项都成立，才进入剧情框架。勾选会同步到「六阶段」。</p>" +
+        g.gates.map(function (item) {
+          var k = "1:" + item.id;
+          return "<label class='check'><input type='checkbox' data-act='tick' data-id='" + k + "'" + (S.ticks[k] ? " checked" : "") + "> <span>" + esc(item.text) + "</span></label>";
+        }).join("");
+    } else if (id === "rounds") {
+      var cursor = 0;
+      for (; cursor < ROUNDS.length; cursor++) {
+        var picked = ROUNDS[cursor].choices.filter(function (c) { return c.id === S.rounds[ROUNDS[cursor].id]; })[0];
+        if (!picked || !picked.ok) break;
+      }
+      body = "<h2>阶段 2：一轮只问一个问题</h2><p class='lead'>骨架由 Agent 落在 docs/skeleton/。你每轮只看一个小包。包的开头三行写明：本轮判断什么、本轮不决定什么、改动会牵动哪些编号。</p>";
+      ROUNDS.forEach(function (r, idx) {
+        if (idx > cursor) return;
+        var picked = r.choices.filter(function (c) { return c.id === S.rounds[r.id]; })[0];
+        body += "<article class='round'><h3>" + esc(r.name) + "</h3><p>" + esc(r.pack) + "</p><p><b>你只回答</b></p>" +
+          r.choices.map(function (c) {
+            var cls = picked && picked.id === c.id ? (c.ok ? "pick-ok" : "pick-bad") : "";
+            return "<button type='button' class='opt " + cls + "' data-act='round' data-round='" + r.id + "' data-choice='" + c.id + "'>" + esc(c.text) + "</button>";
+          }).join("") +
+          (picked ? "<p>" + esc(picked.why) + "</p>" : "") + "</article>";
+      });
+      if (cursor >= ROUNDS.length) {
+        body += "<article class='round'><h3>若要返工</h3><p>某一拍的长短或「怕什么」变了，重开哪里？</p>" +
+          [{ id: "all", ok: false, text: "四轮全部重来", why: "返工按层重开。这一拍变了，只重开挂在这一拍上的遭遇卡。" },
+           { id: "beat", ok: true, text: "只重开这一拍上的遭遇卡", why: "对。改职责就换地点或主语；改某一张卡的决定就只动那张卡；规则措辞不进骨架审阅。" },
+           { id: "file", ok: false, text: "直接改剧情文件里的正文", why: "剧情文件要等骨架定稿并且文档自检通过之后才落地。" }
+          ].map(function (c) {
+            var on = S.rework === c.id;
+            return "<button type='button' class='opt " + (on ? (c.ok ? "pick-ok" : "pick-bad") : "") + "' data-act='rework' data-id='" + c.id + "'>" + esc(c.text) + "</button>" +
+              (on ? "<p>" + esc(c.why) + "</p>" : "");
+          }).join("") +
+          (S.rework === "beat" ? "<details><summary>其他改动重开哪里</summary><ul><li>地点或槽位的职责变了：相关卡换地点或主语，选项结构留着。</li><li>某一张卡的决定变了：只改这一张，骨架等它定稿再挪。</li><li>规则怎么措辞：不进骨架审阅。矛盾一组一组处理。</li></ul></details>" : "") +
+          "</article>";
+      }
+    } else if (id === "audit") {
+      body = "<h2>写剧情文件之前先自检</h2><p class='lead'>两处要做：阶段 2 落地剧情文件之前，阶段 4 换肤定制或扩写正文之前。阶段 3 若改了剧情相关设定，阶段 4 再跑一次。</p>" +
+        "<p>Agent 先通读状态、需求、圣经、蓝图、骨架、相关 ADR、已有 lore 和已有剧情文件。然后做两件事：矛盾清掉，重复的设定收成一个主文件、其余改成一行指针。</p>" +
+        "<p>能用「冻结文档优先于草案」消掉的，Agent 改草案并记一笔，不来问你。</p>" +
+        "<div class='row'><button type='button' class='mini' data-act='audit' data-dir='-1'>少一条</button><strong>待裁决 " + S.auditN + " 条</strong><button type='button' class='mini' data-act='audit' data-dir='1'>多一条</button></div>" +
+        "<p>" + esc(auditText()) + "</p>" +
+        "<button type='button' class='primary' data-act='audit-ok'" + (S.auditSeen3 ? "" : " disabled") + ">记下了</button>";
+    } else if (id === "build") {
+      var orderOk = stepReady("build");
+      body = "<h2>阶段 4 按这个顺序开工</h2><p class='lead'>垂直切片：固定分支和混合型是第一章骨架，开放世界是第一个区域。扩写前先出场景表：场景、功能、变量与后果。</p><ol>" +
+        S.order.map(function (oid, i) {
+          return "<li class='row' draggable='true' data-order-id='" + oid + "'><button type='button' class='mini' data-act='mv' data-i='" + i + "' data-dir='-1'" + (i === 0 ? " disabled" : "") + ">上移</button><button type='button' class='mini' data-act='mv' data-i='" + i + "' data-dir='1'" + (i === S.order.length - 1 ? " disabled" : "") + ">下移</button><span>" + esc(ORDER_LABEL[oid]) + "</span></li>";
+        }).join("") + "</ol>" + (orderOk ? "<p>顺序对了。选择少而重：每章或每区 1–2 个重大选择，大约每 300–500 字一个普通选择。</p>" : "");
+    } else if (id === "route") {
+      body = "<h2>一条反馈回到一个阶段</h2><p class='lead'>先点左边的一条，再点它该回去的阶段。点已放入的卡片可以拿回来。</p><div class='route'><div class='col'><h3>待分流</h3>" +
+        ROUTES.filter(function (r) { return !S.routes[r.id]; }).map(function (r) {
+          return "<button type='button' class='opt" + (S.routePick === r.id ? " pick-ok" : "") + "' data-act='route-pick' data-id='" + r.id + "'>" + esc(r.text) + "</button>";
+        }).join("") + "</div>" +
+        ["1", "2", "3", "4", "5"].map(function (st) {
+          return "<div class='col'><h3>阶段 " + st + "</h3><button type='button' class='mini' data-act='route-to' data-stage='" + st + "'>放到这里</button>" +
+            ROUTES.filter(function (r) { return S.routes[r.id] === st; }).map(function (r) {
+              var bad = r.stage !== st;
+              return "<button type='button' class='opt " + (bad ? "pick-bad" : "pick-ok") + "' data-act='route-back' data-id='" + r.id + "'>" + esc(r.text) + (bad ? "<small>这条回到阶段 " + r.stage + "</small>" : "") + "</button>";
+            }).join("") + "</div>";
+        }).join("") + "</div>";
+    } else if (id === "close") {
+      body = "<h2>会话怎么收尾</h2><p class='lead'>你说出下面这句，Agent 才更新记忆并提交。冻结了的版本再打 git 标签。</p>" +
+        "<button type='button' class='primary' data-act='say-end'>结束会话，写回记忆并提交</button>" +
+        (S.closed ? "<ul><li>docs/00-project-state.md</li><li>docs/sessions/YYYY-MM-DD-NN-主题.md</li><li>memory/index.json</li><li>CHANGELOG.md</li><li>git 提交</li></ul><p>推送到远程要你另外开口。Agent 不会在收尾时自动推送。</p>" : "");
+    } else {
+      body = "<h2>这条流程走完了</h2><div class='row'><p class='lead'>母本到这里仍是工作流，具体游戏从阶段 1 的定调开始长出来。左边的文件地图和六阶段可以当成以后开工的目录。</p><div class='seal'>走通</div></div>" +
+        "<div class='row'><button type='button' class='primary' data-act='jump' data-view='map'>打开文件地图</button><button type='button' class='ghost' data-act='jump' data-view='quiz'>做六题小测</button></div>";
+    }
+    var nextLabel = id === "intro" ? "开始走流程" : id === "done" ? "去文件地图" : "下一步";
+    return pillsHtml() + (S.blocked ? "<p class='why'>" + esc(S.blocked) + "</p>" : "") + "<div class='sheet'>" + body +
+      "<div class='foot'><button type='button' class='ghost' data-act='prev'" + (S.step === 0 ? " disabled" : "") + ">上一步</button><p class='hint'>" + esc(hintFor(id)) + "</p><button type='button' class='primary' data-act='next'" + (stepReady(id) ? "" : " disabled") + ">" + nextLabel + "</button></div></div>";
+  }
+  function mapHtml() {
+    var filters = [{ id: "all", name: "全部" }].concat(PHASES.map(function (p) { return { id: String(p.id), name: "阶段" + p.id }; }));
+    return "<div class='sheet'><h2>文件地图</h2><p class='lead'>点一份文件看它何时出现、写什么。筛选和搜索叠在一起用。</p>" +
+      "<div class='map-tools row'><input id='map-q' type='search' aria-label='在地图中筛选' placeholder='筛选路径或说明' value='" + esc(S.mapQuery) + "'></div>" +
+      "<div class='filters'>" + filters.map(function (f) {
+        return "<button type='button' class='" + (S.phaseFilter === f.id ? "on" : "") + "' data-act='filter' data-f='" + f.id + "'>" + esc(f.name) + "</button>";
+      }).join("") + "</div><p class='muted' id='map-count'>显示 " + visibleFiles().length + " / " + FILES.length + "</p>" +
+      "<div class='map'><div id='map-list'>" + mapItemsHtml() + "</div><aside class='detail'>" + fileDetailHtml() + "</aside></div></div>";
+  }
+  function phasesHtml() {
+    var p = PHASES.filter(function (x) { return x.id === S.phase; })[0];
+    var gates = p.gates.map(function (g) {
+      var k = p.id + ":" + g.id;
+      return "<label class='check'><input type='checkbox' data-act='tick' data-id='" + k + "'" + (S.ticks[k] ? " checked" : "") + "> <span>" + esc(g.text) + "</span></label>";
+    }).join("");
+    var extra = "";
+    if (p.id === 2) {
+      var lv = LEVELS[S.level] || LEVELS[2];
+      var loopOn = LOOPS.every(function (L) { return !!S.loop[L.id]; });
+      var loopFocus = LOOPS.filter(function (L) { return L.id === S.loopLast; })[0];
+      extra = "<h3>选择影响</h3><p>少而重。每章或每区 1–2 个重大选择，大约每 300–500 字一个普通选择。</p>" +
+        "<input id='level' type='range' min='0' max='4' value='" + S.level + "' aria-valuetext='" + esc(lv.name) + "'><p><b id='lv-name'>" + esc(lv.name) + "</b> <span id='lv-desc'>" + esc(lv.desc) + "</span></p>" +
+        "<h3>变量四项</h3><div class='row'>" + LOOPS.map(function (L) {
+          return "<button type='button' class='mini" + (S.loop[L.id] ? " on" : "") + "' data-act='loop' data-k='" + L.id + "'>" + esc(L.name) + "</button>";
+        }).join("") + "</div><p class='muted'>" + esc(loopFocus ? loopFocus.desc : "点一项看它要写什么。") + "</p>" +
+        (loopOn ? "<p><b>四项都在，这个变量闭环了。</b></p>" : "");
+    }
+    if (p.id === 5) {
+      extra = "<h3>试玩反馈的优先级</h3><p>格式：版本 / 喜欢 / 问题 / 期望 / 优先级。先点一条，再点级别。</p><div class='prio'>" +
+        ["P0", "P1", "P2"].map(function (level) {
+          return "<div class='col'><h3>" + level + "</h3><button type='button' class='mini' data-act='prio-to' data-p='" + level + "'>放到这里</button>" +
+            PRIOS.filter(function (item) { return S.prio[item.id] === level; }).map(function (item) {
+              var bad = item.p !== level;
+              return "<button type='button' class='opt " + (bad ? "pick-bad" : "pick-ok") + "' data-act='prio-back' data-id='" + item.id + "'>" + esc(item.text) + "</button>";
+            }).join("") + "</div>";
+        }).join("") + "</div><div class='row' style='margin-top:8px'>" +
+        PRIOS.filter(function (item) { return !S.prio[item.id]; }).map(function (item) {
+          return "<button type='button' class='opt" + (S.prioPick === item.id ? " pick-ok" : "") + "' data-act='prio-pick' data-id='" + item.id + "'>" + esc(item.text) + "</button>";
+        }).join("") + "</div>" +
+        (PRIOS.every(function (item) { return S.prio[item.id] === item.p; }) ? "<p>P0 马上修，P1 本轮修，P2 进待办。</p>" : "") +
+        "<pre>" + esc(CMD + "\n" + CMD_MINI) + "</pre>";
+    }
+    return "<div class='sheet'><h2>六阶段</h2><p class='lead'>点左边看产出和门禁。勾选存在这台浏览器里，可当作你自己项目的清单。</p><div class='phase'><div class='spine'>" +
+      PHASES.map(function (item) {
+        return "<button type='button' class='" + (item.id === p.id ? "on" : "") + "' data-act='phase' data-phase='" + item.id + "'>" + item.id + " " + esc(item.name) + "</button>";
+      }).join("") + "</div><div><h3>阶段 " + p.id + " · " + esc(p.name) + "</h3><p>" + esc(p.say) + "</p><p>" + esc(pathNote(p.id)) + "</p><h3>产出</h3><ul>" +
+      p.out.map(function (o) { return "<li>" + esc(o) + "</li>"; }).join("") + "</ul><h3>门禁</h3>" + gates + extra + "</div></div></div>";
+  }
+  function rulesHtml() {
+    return "<div class='sheet'><h2>九条硬规则</h2><p class='lead'>任何阶段都有效。点开一条看它落在文件的哪里。</p>" +
+      RULES.map(function (r) {
+        var open = S.rule === r.id;
+        return "<article class='rule'><button type='button' class='head' data-act='rule' data-id='" + r.id + "'>" + (open ? "▾ " : "▸ ") + esc(r.title) + "</button>" +
+          (open ? "<p>" + esc(r.body) + "</p>" : "") + "</article>";
+      }).join("") +
+      "<h3>会话两端</h3><div class='board'><div class='detail'><b>开始</b><p>读总纲、项目状态、最近的会话日志，再按任务打开相关文件。先复述阶段、冻结项、待确认和本次目标。</p></div>" +
+      "<div class='detail'><b>结束</b><p>你说「结束会话，写回记忆并提交」。更新项目状态、会话日志、索引、CHANGELOG，然后提交。冻结版本打标签。</p></div>" +
+      "<div class='detail'><b>校验</b><pre>" + esc(CMD) + "</pre><p class='muted'>冒烟样例应全绿：</p><pre>" + esc(CMD_MINI) + "</pre></div></div></div>";
+  }
+  function quizHtml() {
+    if (S.quiz.over) {
+      return "<div class='sheet'><h2>小测结果</h2><p class='lead'>" + QUIZ.length + " 题里对了 " + S.quiz.score + " 题。</p><button type='button' class='primary' data-act='quiz-reset'>再测一次</button></div>";
+    }
+    var item = QUIZ[S.quiz.n];
+    return "<div class='sheet'><h2>小测 " + (S.quiz.n + 1) + " / " + QUIZ.length + "</h2><p class='lead'>" + esc(item.q) + "</p>" +
+      item.options.map(function (op, i) {
+        var cls = "";
+        if (S.quiz.pick !== null && i === item.a) cls = "pick-ok";
+        else if (S.quiz.pick === i) cls = "pick-bad";
+        return "<button type='button' class='opt " + cls + "' data-act='quiz' data-i='" + i + "'>" + esc(op) + "</button>";
+      }).join("") +
+      (S.quiz.pick === null ? "" : "<p>" + esc(item.why) + "</p><button type='button' class='primary' data-act='quiz-next'>" + (S.quiz.n === QUIZ.length - 1 ? "看结果" : "下一题") + "</button>") +
+      "</div>";
+  }
+  function viewHtml() {
+    if (S.view === "map") return mapHtml();
+    if (S.view === "phases") return phasesHtml();
+    if (S.view === "rules") return rulesHtml();
+    if (S.view === "quiz") return quizHtml();
+    return walkHtml();
+  }
+  function render() {
+    var before = S.step;
+    clampStep();
+    if (S.view === "walk" && STEPS[S.step] && STEPS[S.step].id === "tone" && !S.toneSeen) S.toneSeen = true;
+    if (S.step !== before || (S.view === "walk" && STEPS[S.step].id === "tone" && S.toneSeen)) save();
+    var y = forceTop ? 0 : window.scrollY;
+    document.getElementById("stage").innerHTML = viewHtml();
+    document.querySelectorAll("nav [data-view]").forEach(function (btn) {
+      btn.classList.toggle("on", btn.dataset.view === S.view);
+      if (btn.dataset.view === S.view) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
+    var prog = document.getElementById("walk-progress");
+    if (prog) prog.textContent = doneCount() + "/" + (STEPS.length - 1);
+    var bar = document.getElementById("bar");
+    if (bar) bar.style.width = (doneCount() / (STEPS.length - 1) * 100) + "%";
+    var sel = document.getElementById("path");
+    if (sel && sel.value !== (S.path || "")) sel.value = S.path || "";
+    forceTop = false;
+    window.scrollTo(0, y);
+  }
+  function after(top) { save(); forceTop = !!top; render(); }
+  function setPath(p) {
+    if (S.path !== p) S.fit = false;
+    S.path = p;
+  }
+  function goConcept(c) {
+    if (c.view === "walk" && c.stepId) {
+      var i = STEPS.findIndex(function (s) { return s.id === c.stepId; });
+      if (canOpen(i)) { S.view = "walk"; S.step = i; }
+      else { S.view = "phases"; if (c.phase) S.phase = c.phase; }
+    } else {
+      S.view = c.view;
+      if (c.phase) S.phase = c.phase;
+    }
+    after(true);
+  }
+  function onClick(e) {
+    var hit = e.target.closest("[data-hit]");
+    if (hit) {
+      document.getElementById("hits").hidden = true;
+      document.getElementById("q").value = "";
+      if (hit.dataset.hit === "file") { S.view = "map"; S.file = hit.dataset.id; after(true); }
+      else {
+        var c = CONCEPTS.filter(function (x) { return x.id === hit.dataset.id; })[0];
+        if (c) goConcept(c);
+      }
+      return;
+    }
+    if (!e.target.closest("#hits") && e.target.id !== "q") document.getElementById("hits").hidden = true;
+    var btn = e.target.closest("[data-view], [data-act]");
+    if (!btn) return;
+    if (btn.dataset.view && btn.closest("nav")) { S.view = btn.dataset.view; S.blocked = ""; after(true); return; }
+    var act = btn.dataset.act;
+    if (!act) return;
+    if (act === "goto") {
+      var i = Number(btn.dataset.step);
+      if (canOpen(i)) { S.step = i; S.blocked = ""; after(true); }
+      else { S.blocked = "前面的步骤走完，才能打开这一步。"; after(false); }
+      return;
+    }
+    if (act === "next") {
+      var cur = STEPS[S.step].id;
+      if (!stepReady(cur)) return;
+      if (cur === "done") { S.view = "map"; after(true); return; }
+      S.step += 1; S.blocked = ""; after(true); return;
+    }
+    if (act === "prev") { if (S.step > 0) S.step -= 1; S.blocked = ""; after(true); return; }
+    if (act === "peek" || act === "phase") { S.phase = Number(btn.dataset.phase); after(false); return; }
+    if (act === "boot") {
+      var n = Number(btn.dataset.n);
+      if (n === S.boot) { S.boot += 1; S.bootMsg = ""; }
+      else if (n > S.boot) S.bootMsg = "先点上面还没读的那一份。";
+      else S.bootMsg = "这份已经读过。";
+      after(false); return;
+    }
+    if (act === "role") {
+      if (btn.dataset.who === "pool") delete S.roles[btn.dataset.id];
+      else S.roles[btn.dataset.id] = btn.dataset.who;
+      after(false); return;
+    }
+    if (act === "path") { setPath(btn.dataset.path); after(false); return; }
+    if (act === "layer") {
+      if (!layerUnlocked(btn.dataset.id)) S.layerMsg = "上一层确认之后，再确认这一层。";
+      else { S.layers[btn.dataset.id] = true; S.layerMsg = ""; }
+      after(false); return;
+    }
+    if (act === "unlayer") {
+      var idx = LAYERS.findIndex(function (L) { return L.id === btn.dataset.id; });
+      LAYERS.slice(idx).forEach(function (L) { S.layers[L.id] = false; });
+      S.fit = false; after(false); return;
+    }
+    if (act === "trap") {
+      if (!S.layers.truth) S.trap = "block";
+      else if (!S.layers.mystery) S.trap = "mystery";
+      else S.trap = "ok";
+      after(false); return;
+    }
+    if (act === "fit") { S.fit = true; after(false); return; }
+    if (act === "round") { S.rounds[btn.dataset.round] = btn.dataset.choice; after(false); return; }
+    if (act === "rework") { S.rework = btn.dataset.id; after(false); return; }
+    if (act === "audit") {
+      S.auditN = Math.max(1, Math.min(6, S.auditN + Number(btn.dataset.dir)));
+      if (S.auditN >= 3) S.auditSeen3 = true;
+      after(false); return;
+    }
+    if (act === "audit-ok") { if (S.auditSeen3) S.auditOk = true; after(false); return; }
+    if (act === "mv") {
+      var from = Number(btn.dataset.i);
+      var to = from + Number(btn.dataset.dir);
+      if (to < 0 || to >= S.order.length) return;
+      var arr = S.order.slice();
+      var tmp = arr[from]; arr[from] = arr[to]; arr[to] = tmp;
+      S.order = arr; after(false); return;
+    }
+    if (act === "route-pick") { S.routePick = btn.dataset.id; after(false); return; }
+    if (act === "route-to") { if (S.routePick) { S.routes[S.routePick] = btn.dataset.stage; S.routePick = ""; } after(false); return; }
+    if (act === "route-back") { delete S.routes[btn.dataset.id]; after(false); return; }
+    if (act === "say-end") { S.closed = true; after(false); return; }
+    if (act === "jump") {
+      if (btn.dataset.step) {
+        var si = STEPS.findIndex(function (s) { return s.id === btn.dataset.step; });
+        if (canOpen(si)) { S.view = "walk"; S.step = si; after(true); return; }
+      }
+      if (btn.dataset.phase) S.phase = Number(btn.dataset.phase);
+      if (btn.dataset.view) S.view = btn.dataset.view;
+      after(true); return;
+    }
+    if (act === "file") { S.file = btn.dataset.id; after(false); return; }
+    if (act === "filter") { S.phaseFilter = btn.dataset.f; after(false); return; }
+    if (act === "group") { S.groups[btn.dataset.g] = !S.groups[btn.dataset.g]; after(false); return; }
+    if (act === "nodemode") { S.nodeMode = btn.dataset.mode; after(false); return; }
+    if (act === "loop") {
+      S.loop[btn.dataset.k] = !S.loop[btn.dataset.k];
+      S.loopLast = btn.dataset.k;
+      after(false); return;
+    }
+    if (act === "prio-pick") { S.prioPick = btn.dataset.id; after(false); return; }
+    if (act === "prio-to") { if (S.prioPick) { S.prio[S.prioPick] = btn.dataset.p; S.prioPick = ""; } after(false); return; }
+    if (act === "prio-back") { delete S.prio[btn.dataset.id]; after(false); return; }
+    if (act === "rule") { S.rule = S.rule === btn.dataset.id ? "" : btn.dataset.id; after(false); return; }
+    if (act === "quiz") {
+      if (S.quiz.pick !== null) return;
+      S.quiz.pick = Number(btn.dataset.i);
+      if (S.quiz.pick === QUIZ[S.quiz.n].a) S.quiz.score += 1;
+      after(false); return;
+    }
+    if (act === "quiz-next") {
+      if (S.quiz.n >= QUIZ.length - 1) S.quiz.over = true;
+      else { S.quiz.n += 1; S.quiz.pick = null; }
+      after(false); return;
+    }
+    if (act === "quiz-reset") { S.quiz = { n: 0, pick: null, score: 0, over: false }; after(false); return; }
+    if (act === "copy") {
+      var text = btn.dataset.copy;
+      var el = btn;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { el.textContent = "已复制"; }, function () { el.textContent = "命令就在上面"; });
+      }
+    }
+  }
+  document.body.addEventListener("click", onClick);
+  document.body.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t.dataset.act === "init") { S.init[t.dataset.id] = t.checked; after(false); }
+    if (t.dataset.act === "tick") { S.ticks[t.dataset.id] = t.checked; after(false); }
+  });
+  document.body.addEventListener("input", function (e) {
+    if (e.target.id === "map-q") {
+      S.mapQuery = e.target.value; save();
+      var list = document.getElementById("map-list");
+      if (list) list.innerHTML = mapItemsHtml();
+      var count = document.getElementById("map-count");
+      if (count) count.textContent = "显示 " + visibleFiles().length + " / " + FILES.length;
+    }
+    if (e.target.id === "level") {
+      S.level = Number(e.target.value); save();
+      var lv = LEVELS[S.level];
+      var a = document.getElementById("lv-name");
+      var b = document.getElementById("lv-desc");
+      if (a) a.textContent = lv.name;
+      if (b) b.textContent = lv.desc;
+    }
+    if (e.target.id === "q") {
+      var q = e.target.value.trim().toLowerCase();
+      var box = document.getElementById("hits");
+      if (!q) { box.hidden = true; box.innerHTML = ""; return; }
+      var hits = [];
+      FILES.forEach(function (f) {
+        if ((f.path + f.what + f.more + f.keys).toLowerCase().indexOf(q) >= 0) hits.push({ hit: "file", id: f.id, title: f.path, sub: f.what });
+      });
+      CONCEPTS.forEach(function (c) {
+        if ((c.title + c.sub).toLowerCase().indexOf(q) >= 0) hits.push({ hit: "go", id: c.id, title: c.title, sub: c.sub });
+      });
+      hits = hits.slice(0, 8);
+      box.hidden = hits.length === 0;
+      box.innerHTML = hits.map(function (h) {
+        return "<button type='button' data-hit='" + h.hit + "' data-id='" + esc(h.id) + "'>" + esc(h.title) + "<small>" + esc(h.sub) + "</small></button>";
+      }).join("");
+    }
+  });
+  document.getElementById("path").addEventListener("change", function (e) { setPath(e.target.value); after(false); });
+  document.getElementById("reset").addEventListener("click", function () {
+    if (!window.confirm("清除这台浏览器里的说明页进度？")) return;
+    localStorage.removeItem(KEY);
+    S = fresh();
+    document.getElementById("q").value = "";
+    after(true);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.target.matches("input, textarea, select")) return;
+    if (S.view !== "walk") return;
+    if (e.key === "ArrowRight") { document.querySelector("[data-act='next']") && document.querySelector("[data-act='next']").click(); }
+    if (e.key === "ArrowLeft") { document.querySelector("[data-act='prev']") && document.querySelector("[data-act='prev']").click(); }
+  });
+  document.addEventListener("dragstart", function (e) {
+    var role = e.target.closest("[data-role-id]");
+    var ord = e.target.closest("[data-order-id]");
+    if (role) e.dataTransfer.setData("text/plain", "role:" + role.dataset.roleId);
+    else if (ord) e.dataTransfer.setData("text/plain", "order:" + ord.dataset.orderId);
+  });
+  document.addEventListener("dragover", function (e) {
+    if (e.target.closest("[data-drop], [data-order-id]")) e.preventDefault();
+  });
+  document.addEventListener("drop", function (e) {
+    var data = "";
+    try { data = e.dataTransfer.getData("text/plain"); } catch (err) { return; }
+    if (!data) return;
+    if (data.indexOf("role:") === 0) {
+      var zone = e.target.closest("[data-drop]");
+      if (!zone) return;
+      e.preventDefault();
+      var id = data.slice(5);
+      if (zone.dataset.drop === "pool") delete S.roles[id];
+      else S.roles[id] = zone.dataset.drop;
+      after(false);
+    } else if (data.indexOf("order:") === 0) {
+      var target = e.target.closest("[data-order-id]");
+      if (!target) return;
+      e.preventDefault();
+      var fromId = data.slice(6);
+      var toId = target.dataset.orderId;
+      var a = S.order.slice();
+      var from = a.indexOf(fromId);
+      var to = a.indexOf(toId);
+      if (from < 0 || to < 0 || from === to) return;
+      a.splice(from, 1);
+      a.splice(to, 0, fromId);
+      S.order = a;
+      after(false);
+    }
+  });
+  render();
+})();
+</script>
+</body>
+</html>

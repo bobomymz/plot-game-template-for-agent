@@ -1,6 +1,6 @@
 # 项目模板库
 
-新建下列文件时，复制对应模板。所有示例值均为占位符，按实际内容替换。本文件只收跨叙事路径共享的模板，路径专属模板（伏笔台账、区域方案、场景表、路径校验清单等）与三路径总览在 `叙事路径.md`；两文件超过约 400 行时继续按类型拆分，并同步更新 CLAUDE.md 与各文档中的引用。
+新建下列文件时，复制对应模板。所有示例值均为占位符，按实际内容替换。本文件只收跨叙事路径共享的模板，路径专属模板（伏笔台账、区域方案、场景表、骨架文件、路径校验清单等）与三路径总览在 `叙事路径.md`；两文件超过约 400 行时继续按类型拆分，并同步更新 CLAUDE.md 与各文档中的引用。
 
 ## 1. 项目状态 /docs/00-project-state.md
 
@@ -85,39 +85,45 @@ source_sessions: []
 
 ## 6. 剧情节点 /story/*.js
 
-剧情文件为 .js 对象字面量，按章/幕/区域一文件（如 `ch1.js`；开放世界可建区域子目录），向全局 `storyData` 合并（或模块导入，加载方式由阶段 3 定）；数据形态必须仍可被校验脚本加载。键为节点 ID，值含 `text`/`conditions`/`next`/`choices`/`effects`。
+剧情文件为 .js 对象字面量，按章/幕/区域一文件（如 `ch1.js`；开放世界可建区域子目录），正文文件用 `Object.assign(storyData, {...})` 向全局合并；引导文件 `00core.js` 建全局 `storyData` 并写运行时变量初值 `_variables` 与 `_meta` 弹窗文案。schema 为母本引擎方言（ADR-0010；字段全集与加载顺序见 §14）：**推进一律 `choices`**——单选项＝纯推进，多选项同目标＝L0 风味选择；**无 `choices` 的场景即终点**（结局/死亡）。引擎不消费节点级 `next`，勿用。
 
 ```js
 // ===== ch2 · 文件头结构图：公共脊柱 → 三向探索 → 收敛到 ch3 =====
 Object.assign(storyData, {
   "ch2_17": {
     // 伏笔 F03（埋设）：厕格字条入册；计划回收：第 5 章
-    text: "……",
-    conditions: { flag_met_xx: true },   // 进入条件，引用 variables.js
-    next: "ch2_18"                       // 线性推进
+    onEnter: function (v) { v.flag_met_xx = 1; },   // 效果两轨之一：函数直改（另一轨为声明式 {set/add/mul}）
+    text: "……",                                     // 支持 {变量} 插值与 para() 分段（§14）
+    choices: [
+      { text: "推门进去", nextScene: "ch2_18" }      // 单选项＝线性推进
+    ]
   },
   "ch2_18": {
     text: "……",
-    choices: [                           // 分支节点：next 与 choices 二选一
+    choices: [
       // 选择影响：追问 → trust_xx+1（E3 判据）+ flag_seen_xx；离开 → trust_xx-1、NPC 记恨（叙事后果，ch4_09 兑现）
-      { text: "追问", effects: { trust_xx: { delta: 1 } }, next: "ch2_19a" },
-      { text: "离开", effects: { trust_xx: { delta: -1 } }, next: "ch2_19b" }
+      { text: "追问", effect: { add: { trust_xx: 1 } }, nextScene: "ch2_19a" },  // 选项级声明式效果
+      { text: "离开", nextScene: "ch2_19b" },
+      // 条件门槛：showCondition 不满足→隐藏；condition 无 elseScene→同样隐藏；有 elseScene→显示、点击时按条件分流
+      { text: "出示证件", condition: { flag_id: 1 }, nextScene: "ch2_19c", elseScene: "ch2_19b" },
+      // redirect 函数：返回节点 ID；静态兜底——两个返回值都是已定义节点
+      { text: "追上去", nextScene: function (v) { return v.trust_xx >= 3 ? "ch2_20a" : "ch2_20b"; } }
     ]
   }
 });
 ```
 
-- `next` 与 `choices` 二选一：线性节点用节点级 `next`，分支节点用 `choices`；两者皆无为终点，必须是结局表引用的 `entry_node`，否则校验报死路。入口节点 ID 约定为 `start`（校验脚本以它为起点做可达性检查）。
-- `effects` 统一语法：数值增减 `{"delta": n}`，赋值 `{"set": v}`；节点级与选项级同构，并与 variables.js 的 `changes` 记录一一对应。
-- 路由函数为例外：确需动态跳转（如开放世界动态封路）时，函数返回值仍须是节点 ID 字符串，且须有静态兜底路径；图遍历校验按静态引用处理。
+- 终点场景（无 `choices`）必须是结局表引用的 `entry_node`，否则校验报死路；死亡结局加 `deathRestart: true`（可配 `deathRestartText` 按钮文案）。入口节点 ID 约定为 `start`（校验以它为起点做可达性检查）。结局场景判定：ID 以「结局」开头，或文本含「—— 结局：」。
+- 效果两轨：节点级 `onEnter`（函数直改 gameState，或 `{set/add/mul}` 声明式对象）与选项级 `effect`（选中即生效）。数值变化须与 variables.js 的 `changes` 节点列表对账。
+- 条件三态：对象 `{var: 期望值}` / 表达式串 `"sleep >= 30 && !metCai"` / 函数。redirect 函数返回值须为已定义节点 ID 且有静态兜底；校验把函数体内引用的已定义节点 ID 计入静态可达，仍提示人工确认。
 - **行内注释三规范**（写作时强制执行）：
   1. **文件头结构图**：每个剧情文件头部一行注释画出本文件结构拓扑（脊柱/支线/收敛，或区域联通概览）。
   2. **伏笔标注**：埋设与回收处各一行 `// 伏笔 Fxx（埋设/回收）：内容；计划回收：<位置>`，并同步登记 `/story/foreshadow.js` 台账（固定分支/混合，见 叙事路径.md §2.2）。
   3. **选择影响标注**：有后果的选项上方一行 `// 选择影响：<选项> → 数值变化（用途锚：结局判据/后续解锁）+ 叙事后果（人物/环境状态改变及兑现位置）`——后续拉长叙事链条、添加伏笔的着力点。
 
-## 7. 变量表 /story/variables.js
+## 7. 变量表 /story/variables.js（双层）
 
-每个变量一条记录，四个字段对应「来源 / 变化 / 用途 / 结局条件」闭环要求，值引用节点 ID / 结局 ID。任一字段为空数组即闭环缺失，阶段 2 自查与阶段 5 校验以本文件为准。数值变量须声明 `min`/`max`，校验据此查值域越界。变量语义与取值唯一写在 `desc` 字段；行内注释只记 desc 之外的设计意图（如阈值平衡理由），不重复 desc。
+运行时初值写在 `00core.js` 的 `storyData._variables`（平铺），本表只给校验对账、运行时不读；`init` 必须与 `_variables` 同名值一致（校验比对两处）。每个变量一条记录，四个字段对应「来源 / 变化 / 用途 / 结局条件」闭环要求，值引用节点 ID / 结局 ID；onEnter 直改与 redirect 函数体无法静态解析，闭环靠本表登记（`changes` 记节点列表，数值明细看行内注释）。任一字段为空数组即闭环缺失。数值变量须声明 `min`/`max`，校验据此查值域越界。变量语义与取值唯一写在 `desc` 字段；行内注释只记 desc 之外的设计意图（如阈值平衡理由），不重复 desc。
 
 ```js
 var VARIABLES = {
@@ -126,32 +132,29 @@ var VARIABLES = {
     init: 0,
     min: 0,
     max: 5,
-    source: ["ch1_02"],
-    changes: [
-      { node: "ch1_02", delta: 1 },
-      { node: "ch2_03", set: 3 }
-    ],
-    uses: ["ch2_10:conditions", "ch3_04:解锁选项"],
-    endings: [{ ending: "end_true", cond: ">=3" }]
+    source: ["ch1_02 初见寒暄"],
+    changes: [{ node: "ch1_02" }, { node: "ch2_03" }],
+    uses: ["ch2_10:condition", "ch3_04:解锁选项"],
+    endings: [{ ending: "end_true" }]
   }
 };
 ```
 
 ## 8. 结局表 /story/endings.js
 
-每个结局一条记录。`requirements` 引用 variables.js 中的变量名；`priority` 数值越小越优先，多结局条件同时满足时按其判定，避免歧义。结局判定建议收口为一个纯函数 + 集中声明的阈值（见 叙事路径.md §2.1）。
+运行时不读本表——结局按钮由终点场景的 `deathRestart` 标志或「结局」ID 前缀驱动；本表供校验（entry_node 可达性、判据值域）与判定次序参考，`priority` 大者优先（930 惯例）。结局判定建议收口为一个纯函数 + 集中声明的阈值（见 叙事路径.md §2.1）。
 
 ```js
 var ENDINGS = {
   end_true: {
     name: "真结局",
     desc: "一句话描述",
-    entry_node: "end_true_01",
+    entry_node: "结局_真相",
     requirements: [
       { var: "trust_ally", op: ">=", value: 3 },
-      { var: "flag_relic_found", op: "==", value: true }
+      { var: "flag_relic_found", op: "==", value: 1 }
     ],
-    priority: 1
+    priority: 100
   }
 };
 ```
@@ -163,9 +166,9 @@ var ENDINGS = {
 1. 删除 `docs/sessions/` 下全部模板元会话日志、`docs/decisions/` 下全部模板 ADR。
 2. 按 §1 模板重置 `docs/00-project-state.md`（清空 notes 与 frozen）。
 3. 重置 `CHANGELOG.md`：仅保留一行「基于工作流模板 workflow-v2.x 初始化」。
-4. 创建/清空 `/memory/index.json` 为 `{}`；确认 `/story/`、`/lore/`、`/src/`、`/tests/` 无模板遗留内容；路径专属产物（`foreshadow.js`、`docs/regions/`）按本项目叙事路径决定是否创建。
+4. 创建/清空 `/memory/index.json` 为 `{}`；确认 `/lore/` 无模板遗留内容。**引擎起步包保留**：根目录 `engine.js` / `index.html` / `style.css` 不删，但去掉 930 演示痕迹——`index.html` 的 `<title>` 与 `#preload-title` 改为项目名（`storyData._meta.title` 同步）；`/story/` 清为空壳：删除 `ch1.js`，`00core.js` 的 `_variables`/`_meta` 换成项目内容，三表（endings/variables/foreshadow）清成只留注释的空对象（阶段 2 落地时填）。`tests/fixtures/mini` 是校验脚本的永久冒烟样例，不动。路径专属产物（`foreshadow.js`、`docs/regions/`）按本项目叙事路径决定；`docs/skeleton/` 到阶段 2 再按章或区域建，`docs/reviews/` 到出现成批裁决时再生成，初始化时都不预填。`docs/templates/review-board.html` 保留。
 5. 执行完本清单后，删除 CLAUDE.md 头部指向本清单的指引；「常用命令」小节的 dev/build 留待阶段 3 回填（校验命令保留）。
-6.（阶段 1 定调层选定叙事路径后执行，不在初始化时）裁剪本项目 CLAUDE.md 与 `docs/templates/叙事路径.md` 只留所选路径：删除 叙事路径.md 未选两路径的小节与 §1 表中不适用列、§5 只留所选路径行；§6 审阅与自检保留；CLAUDE.md §4 只留所选路径一行。被删内容以母本为准，需要时回母本查阅。
+6.（阶段 1 定调层选定叙事路径后执行，不在初始化时）裁剪本项目 CLAUDE.md 与 `docs/templates/叙事路径.md` 只留所选路径：删除 叙事路径.md 未选两路径的小节与 §1 表中不适用列、§5 只留所选路径行；§6 审阅、自检与成批裁决整节保留；CLAUDE.md §4 只留所选路径一行。被删内容以母本为准，需要时回母本查阅。
 7. 重新 `git init` 并做首次提交（母本的 git 历史与标签不随文件复制）。
 
 > Windows 注意：全仓统一 UTF-8 + LF，新文件勿存成 CRLF（换行混用会使精确字符串匹配失配）；PowerShell 控制台中文乱码仅为显示问题，以文件落盘内容为准，需要可靠输出时重定向到文件。
@@ -250,3 +253,43 @@ var ENDINGS = {
 不做什么：
 首版规模：
 ```
+
+## 13. 剧情蓝图 /docs/03-story-blueprint.md
+
+阶段 2 的结构合同。节拍、职责、遭遇、装配图不写在这里，写入 `docs/skeleton/`（叙事路径.md §6.3）。变量语义只在 `variables.js` 的 `desc`，结局条件只在 `endings.js`。
+
+```markdown
+# 剧情蓝图
+
+一句话结构：
+章/区功能表：   # 每行：单位 ID｜功能一句话｜节点预算｜重大选择（L3/L4）｜骨架文件
+结局路由：      # 结局 ID → 条件摘要；阈值与判据细节只留 endings.js
+变量索引：      # 变量 ID → 一句话用途；语义只留 variables.js
+路径结构：      # 固定分支：脊柱 / 互斥支线 / 收敛点 ID。开放世界：区域差异矩阵指针。混合：扩展地图（节点群 → 区域，优先级与依赖），表留在此，遭遇不留
+```
+
+## 14. 引擎接口与可选机制（母本引擎速查）
+
+母本预置参考引擎（ADR-0010，源自《九三〇来宾须知》实战代码，去项目化手术见文件内注释；与 930 侧分叉，引擎级修复需双向手动同步）。零构建，file:// 双击 `index.html` 即玩。装配顺序：`story/00core.js`（引导）→ `story/utils.js`（可选，正文辅助函数如 `para()`）→ 正文（按章/幕/区域）→ `engine.js` 必须最后；三表（endings/variables/foreshadow）只给校验，无需装配。校验脚本同序加载（`validate.js` loadStory）。
+
+**节点字段**（剧情侧；§6 为写作视角，此处为全集）：
+
+| 字段 | 形态 | 说明 |
+|---|---|---|
+| `text` | 字符串 / 函数(v)→字符串 / 数组 | 函数按当前状态取文；数组＝分段依次播放；支持 `{变量}` 插值与受限 HTML（`para()` 拼段为惯用法） |
+| `onEnter` | `{set/add/mul}` 或 函数(v)→效果对象 | 进入场景触发（函数可直改 gameState）；回溯/读档自动跳过，副作用不重复 |
+| `choices` | 数组（见下） | 无即终点；单选项＝推进，多选项同目标＝L0 风味 |
+| `image` / `imageZoom` | 字符串或函数(v) / 布尔 | 场景图；`imageZoom` 开点击放大 |
+| `deathRestart` / `deathRestartText` | 布尔 / 字符串 | 死亡结局专用重开按钮（走 restartRun：死亡计数+1，回到 start） |
+| `backtrack` | 字符串 | 本场景回溯按钮文案覆盖 |
+| `shake` | onEnter 内 `true` | 场景抖动 |
+| `qte` | 对象 | 场景级限时（时限/typewriter 等模式），见引擎源码 QTE 节注释 |
+| `engineEntry` | 布尔 | 校验侧标记：允许作为可达性起点的入口（如开放世界各区域门） |
+
+**选项字段**：`text`（必填）；`nextScene`（字符串或 redirect 函数）；`condition`（不满足且无 elseScene → 隐藏；有 elseScene → 点击时分流）；`showCondition`（不满足 → 隐藏）；`elseScene`；`effect`（`{set/add/mul}`，选中即生效）；`input`（输入型：采集到 `gameState._input`，condition 提交时求值）；`timeout`/`timeoutScene`（选项级倒计时）。
+
+**元字段**（`00core.js` 挂在 storyData 上，下划线开头）：`_variables` 运行时初值；`_meta` 文案与存档（`title`/`continueText`/`newText`/`deathRestartText`/`backtrackText`/`saveSummary(v)`/`saveKey`）；`_caps` 变量值域钳制（min/max）；`_display` HUD 显示格式；`_reactive` 派生变量与响应规则；`_globalTriggers` 全局触发器（condition + priority + 跳转目标，结局场景豁免——用于「体力归零即死」类横切规则）。
+
+**引擎内建全局**：`_visit` 场景访问计数、`_lastScene` 上一场景、`rollOnce(state, key)`（本局定桩掷骰，回溯不重掷）、自动存档（localStorage，键默认按页面路径隔离、`SAVE_VERSION` 格式版本，迁移策略在阶段 3 定）、回溯（入档上限 30 步）、多周目（`_runNumber`/`deathCount`）、打字机（HTML 标签整体插入）、图片预加载。
+
+**可选机制挂载**（不挂 DOM/不写元字段即不激活，引擎有容错；实现模式参考 930 仓库）：HUD 状态条（story 侧脚本渲染）、规则手册/图鉴面板（story 侧提供 `refreshRulesPanel` + `#rules-btn`/`#rules-panel`）、记忆闪色、屏幕特效遮罩（`_screenEffects`）、黑暗光锥（darkSearch 场景热点）。已知缺口：**无成就系统**——阶段 3 决定 story 层补或裁需求。

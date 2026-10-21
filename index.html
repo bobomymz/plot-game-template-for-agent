@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<!-- ===== index.html · 装配层 =====
+     装配规则：story 引导文件(00core.js) → 正文(按章/幕/区域) → engine.js 必须最后。
+     表文件(endings/variables/foreshadow)只给校验脚本用，运行时不读，无需装配。
+     可选机制挂载点（不用就不挂 DOM，引擎有容错）：
+       · HUD 状态条（时钟/地点/自定义条）——story 侧脚本自行渲染，如 <div id="hud">…</div>
+       · 规则手册/图鉴面板 ——story 侧提供 refreshRulesPanel 并挂 <button id="rules-btn"> + <div id="rules-panel">
+       · QTE 倒计时条 <div id="qte-timer">、警告条 <div id="status-warning">（缺省由引擎按需创建或忽略）
+     挂载模式详见 docs/templates/templates.md「引擎接口与可选机制」节。 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>雨夜旅馆</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="preload-overlay">
+    <div id="preload-box">
+      <div id="preload-title">雨夜旅馆</div>
+      <div id="preload-track">
+        <div id="preload-bar"></div>
+      </div>
+      <div id="preload-label">入场中…</div>
+    </div>
+  </div>
+
+  <!-- 可选：HUD 状态条挂载点（story 侧渲染，引擎不依赖） -->
+  <!-- <div id="hud">…</div> -->
+
+  <div id="game-container">
+    <div id="image-area">
+      <img id="scene-image" alt="">
+      <div id="zoom-badge" style="display:none;">🔍</div>
+    </div>
+
+    <div id="text-area">
+      <div id="scene-text"></div>
+    </div>
+
+    <div id="choices-area"></div>
+
+    <!-- 可选：规则手册/图鉴面板挂载点 -->
+    <!-- <button id="rules-btn" type="button" style="display:none;">📖 手册</button> -->
+    <!-- <div id="rules-panel" hidden></div> -->
+
+    <div id="status-bar">
+      <button id="backtrack-btn" type="button">↩ 回溯</button>
+      <button id="restart-btn" type="button">🔄 重新开始</button>
+    </div>
+  </div>
+
+  <div id="image-viewer" style="display:none;">
+    <img id="image-viewer-img" alt="">
+  </div>
+
+  <script src="story/00core.js"></script>
+  <script src="story/ch1.js"></script>
+  <script src="engine.js"></script>
+  <script>
+    document.getElementById("backtrack-btn").addEventListener("click", function () {
+      if (typeof backtrack === "function") backtrack();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>审阅清单</title>
+<!--
+  复制到 docs/reviews/YYYY-MM-DD-短主题.html 后，只改 id="review-data" 的 JSON。
+  review_id 与文件名（去掉 .html）相同。file 写成该 HTML 的仓库路径。
+  规则见 docs/templates/叙事路径.md §6.4。
+-->
+<style>
+  :root {
+    --bg: #e7e1d6;
+    --ink: #1c1915;
+    --muted: #5e574c;
+    --card: #fffdf8;
+    --line: #d9d0c3;
+    --side: #241f1b;
+    --side-ink: #f3efe6;
+    --hard: #8f2d2d;
+    --hard-bg: #f8e8e4;
+    --rule: #8a4b12;
+    --rule-bg: #f8edd9;
+    --path: #1d4e89;
+    --path-bg: #e7eef6;
+    --stale: #5c5346;
+    --stale-bg: #eeeae3;
+    --ahead: #245c45;
+    --ahead-bg: #e5f2ea;
+    --ok: #1f6b45;
+    --shadow: 0 1px 0 rgba(36, 31, 27, .04), 0 12px 30px rgba(36, 31, 27, .06);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--bg);
+    font: 16px/1.65 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .top {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; gap: 12px; align-items: center;
+    padding: 12px 18px;
+    background: rgba(255, 253, 248, .94);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(8px);
+  }
+  .top h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; }
+  .top p { margin: 0; color: var(--muted); font-size: 13px; }
+  .search {
+    margin-left: auto; flex: 1 1 280px; max-width: 420px;
+    border: 1px solid var(--line); background: #fff; border-radius: 999px;
+    padding: 8px 14px;
+  }
+  .layout { display: grid; grid-template-columns: 292px 1fr; min-height: calc(100vh - 58px); }
+  aside {
+    position: sticky; top: 58px; align-self: start;
+    max-height: calc(100vh - 58px); overflow: auto;
+    padding: 18px 16px 28px;
+    background: var(--side); color: var(--side-ink);
+  }
+  aside h2 { margin: 18px 0 8px; font-size: 12px; letter-spacing: .14em; color: #c8bbaa; }
+  aside h2:first-child { margin-top: 0; }
+  .statgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: rgba(255,255,255,.06); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 20px; line-height: 1.2; }
+  .stat span { font-size: 12px; color: #c8bbaa; }
+  .filters, .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filters button, .tools button, .ruling button {
+    border: 1px solid transparent; background: rgba(255,255,255,.08);
+    color: var(--side-ink); border-radius: 999px; padding: 4px 10px; cursor: pointer;
+  }
+  .filters button[aria-pressed="true"] { background: #fff; color: var(--ink); }
+  .tools button { font-size: 13px; background: rgba(255,255,255,.08); color: var(--side-ink); border-radius: 999px; }
+  .progress { height: 8px; background: rgba(255,255,255,.12); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+  .progress i { display: block; height: 100%; width: 0; background: #e6c07b; }
+  .progress-label, .status { font-size: 12px; color: #c8bbaa; margin: 6px 0 0; }
+  main { padding: 22px 28px 80px; max-width: 1100px; }
+  .banner, .lead, .cleared, .card {
+    background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px;
+  }
+  .banner { margin-bottom: 16px; background: var(--rule-bg); color: var(--rule); }
+  .banner.bad { background: var(--hard-bg); color: var(--hard); }
+  .banner ul { margin: 8px 0 0; padding-left: 18px; }
+  .lead { margin-bottom: 16px; }
+  .lead h2 { margin: 0 0 8px; font-size: 28px; line-height: 1.25; }
+  .timeline { margin: 14px 0 4px; }
+  .tl-row { display: grid; grid-template-columns: 168px 1fr; gap: 8px; align-items: center; margin: 5px 0; }
+  .tl-row span { font-size: 12px; color: var(--muted); }
+  .tl-track { position: relative; height: 16px; background: #efe8dc; border-radius: 99px; overflow: hidden; }
+  .tl-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 99px; opacity: .9; }
+  .tick { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-left: 176px; }
+  .cleared { margin: 16px 0; }
+  .cleared summary { cursor: pointer; font-weight: 700; }
+  .cleared ul { margin: 10px 0 0; padding-left: 18px; }
+  .card { margin: 14px 0; scroll-margin-top: 74px; }
+  .card[data-mark="yes"] { box-shadow: inset 4px 0 0 var(--hard), var(--shadow); }
+  .card[data-mark="no"] { box-shadow: inset 4px 0 0 var(--ok), var(--shadow); }
+  .card[data-mark="later"] { box-shadow: inset 4px 0 0 var(--rule), var(--shadow); }
+  .card.is-current { outline: 2px solid var(--path); }
+  .card.hidden { display: none; }
+  .card-head { display: flex; gap: 10px; align-items: flex-start; }
+  .band {
+    flex: 0 0 auto; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .band.hard { color: var(--hard); background: var(--hard-bg); }
+  .band.rule { color: var(--rule); background: var(--rule-bg); }
+  .band.path { color: var(--path); background: var(--path-bg); }
+  .band.stale { color: var(--stale); background: var(--stale-bg); }
+  .band.ahead { color: var(--ahead); background: var(--ahead-bg); }
+  .band.other { color: #3d3a34; background: #ece7df; }
+  .card h3 { margin: 0; font-size: 20px; line-height: 1.35; }
+  .meta { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .verdict { margin: 12px 0; font-size: 16.5px; }
+  .suggestion { margin: 8px 0; padding: 8px 10px; background: #e5f2ea; border-radius: 10px; }
+  .suggestion b { display: block; font-size: 12px; color: var(--ok); }
+  .suggestion.empty { background: #f6f3ee; color: var(--muted); }
+  .suggestion.empty b { color: var(--muted); }
+  .quotes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .quotes.is-collapsed { display: none; }
+  .quotes.one { grid-template-columns: 1fr; }
+  blockquote {
+    margin: 0; background: #f7f3eb; border-left: 4px solid #c8b89a;
+    padding: 10px 12px; border-radius: 0 10px 10px 0;
+  }
+  blockquote header { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
+  .src { font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 700; }
+  .loc { font-size: 12px; color: var(--muted); }
+  blockquote header button { margin-left: auto; }
+  blockquote p { margin: 0; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+  th, td { border-bottom: 1px solid var(--line); text-align: left; padding: 6px 8px; vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .card-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .card-tools button, .ghost, .ruling button {
+    background: #fff; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 8px; padding: 4px 10px; cursor: pointer;
+  }
+  .ruling button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .comment-label { display: block; margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+  textarea {
+    width: 100%; min-height: 72px; margin-top: 6px; border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px; background: #fff; resize: vertical;
+    font-weight: 400; font-size: 16px; color: var(--ink);
+  }
+  mark { background: #ffe08a; color: inherit; padding: 0 1px; }
+  .empty { display: none; padding: 28px; text-align: center; color: var(--muted); }
+  .empty.show { display: block; }
+  kbd { font-family: ui-monospace, Consolas, monospace; font-size: 12px; border: 1px solid #c8bbaa; border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: relative; top: 0; max-height: none; }
+    .quotes, .tl-row { grid-template-columns: 1fr; }
+    .tick { margin-left: 0; }
+    .top { flex-wrap: wrap; }
+    .search { margin-left: 0; max-width: none; }
+    main { padding: 16px; }
+  }
+  @media print {
+    .top, aside, .card-tools, .banner { display: none !important; }
+    .card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+    body { background: #fff; }
+    textarea { border: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1 id="doc-title">审阅清单</h1>
+    <p id="subtitle"></p>
+  </div>
+  <input class="search" id="q" type="search" placeholder="搜索标题、原文、文件路径…" autocomplete="off">
+</header>
+<div class="layout">
+<aside>
+  <h2>进度</h2>
+  <div class="statgrid">
+    <div class="stat"><b id="n-show">0</b><span>当前筛出</span></div>
+    <div class="stat"><b id="n-all">0</b><span>清单总数</span></div>
+    <div class="stat"><b id="n-yes">0</b><span>要改</span></div>
+    <div class="stat"><b id="n-unread">0</b><span>未看</span></div>
+  </div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="progress-label" id="bar-label">还没有裁决</div>
+  <h2>分类</h2>
+  <div class="filters" id="bands"></div>
+  <div id="topic-block">
+    <h2>主题</h2>
+    <div class="filters" id="topics"></div>
+  </div>
+  <h2>我的标注</h2>
+  <div class="filters" id="marks"></div>
+  <h2>操作</h2>
+  <div class="tools">
+    <button type="button" id="expand">展开引文</button>
+    <button type="button" id="collapse">收起引文</button>
+    <button type="button" id="next">下一条未看</button>
+    <button type="button" id="export">导出标注</button>
+    <button type="button" id="export-action">只导出要改的</button>
+    <button type="button" id="import">导入标注</button>
+    <button type="button" id="reset">清空标注</button>
+  </div>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+  <p class="progress-label">交给 AI 的用「导出标注」，把文件放回 docs/reviews/。</p>
+  <p class="progress-label">快捷键 <kbd>J</kbd><kbd>K</kbd> 上下条，<kbd>1</kbd> 要改，<kbd>2</kbd> 不用改，<kbd>3</kbd> 以后再改，<kbd>/</kbd> 搜索。</p>
+  <p class="status" id="status"></p>
+</aside>
+<main>
+  <div id="problems" class="banner bad" hidden></div>
+  <div id="example" class="banner" hidden></div>
+  <section class="lead">
+    <h2 id="lead"></h2>
+    <p id="intro"></p>
+    <div id="tl-block" hidden>
+      <div class="timeline" id="timeline"></div>
+      <div class="tick" id="ticks"></div>
+    </div>
+  </section>
+  <details class="cleared" id="cleared" hidden></details>
+  <p class="empty" id="empty">这个筛选下没有条目。</p>
+  <div id="list"></div>
+</main>
+</div>
+
+<script type="application/json" id="review-data">
+{
+  "review_id": "example",
+  "file": "docs/templates/review-board.html",
+  "title": "审阅清单",
+  "project": "模板示例",
+  "date": "2026-10-11",
+  "subtitle": "复制后只改数据岛",
+  "lead": "同一件事，两处不能同时为真。",
+  "intro": "下面每条都等你裁决。能按冻结文档直接消掉的不会出现在这里。",
+  "bands": [
+    ["hard", "硬矛盾"],
+    ["rule", "破了自己的规则"],
+    ["path", "路线接不上"],
+    ["stale", "文档是旧的"],
+    ["ahead", "还没写就会撞上"]
+  ],
+  "topics": [
+    ["time", "时刻"],
+    ["rules", "规则"]
+  ],
+  "cleared": [
+    "示例：已经核对过、两边说法一致的事实写在这里。"
+  ],
+  "ticks": ["15:00", "20:00", "03:00", "06:00"],
+  "timeline": [
+    {"label": "场次甲 18:00–20:00", "start": 20, "end": 33.3, "color": "#1d4e89"},
+    {"label": "场次乙 19:30–21:00", "start": 30, "end": 40, "color": "#8a4b12"}
+  ],
+  "cards": [
+    {
+      "id": "c01",
+      "band": "hard",
+      "topic": "time",
+      "title": "示例：同一场写成了两个钟点",
+      "docs": ["docs/02-concept-bible.md", "docs/skeleton/ch1-示例.md"],
+      "verdict": "圣经写这场 19:30 开，骨架同一场写 20:00。两句不能同时为真。",
+      "suggestion": "若以圣经为准，把骨架改成 19:30。",
+      "quotes": [
+        {"file": "docs/02-concept-bible.md", "loc": "开局", "text": "约 19:30 入场。"},
+        {"file": "docs/skeleton/ch1-示例.md", "loc": "节拍 1", "text": "20:00 开场。"}
+      ],
+      "table": {
+        "headers": ["出处", "时刻"],
+        "rows": [
+          ["docs/02-concept-bible.md", "19:30"],
+          ["docs/skeleton/ch1-示例.md", "20:00"]
+        ]
+      }
+    },
+    {
+      "id": "c02",
+      "band": "rule",
+      "topic": "rules",
+      "title": "示例：已经写明不追逐，这一拍却在追",
+      "docs": ["docs/01-requirements.md", "docs/skeleton/ch1-示例.md"],
+      "verdict": "定调写惊吓来自骤变，不走追逐。这一拍的动词是追。",
+      "suggestion": "改成闪现后当场停住。",
+      "quotes": [
+        {"file": "docs/01-requirements.md", "loc": "定调", "text": "惊吓来自上一秒正常、下一秒出事，不走躲藏追逐。"},
+        {"file": "docs/skeleton/ch1-示例.md", "loc": "节拍 3", "text": "有人跑开，它在跑道上追逐。"}
+      ]
+    }
+  ]
+}
+</script>
+<script>
+const MARKS = [
+  ["unread", "未看"],
+  ["yes", "要改"],
+  ["no", "不用改"],
+  ["later", "以后再改"]
+];
+const MARK_FILTERS = [
+  ["all", "全部标注"],
+  ["unread", "未看"],
+  ["yes", "要改"],
+  ["no", "不用改"],
+  ["later", "以后再改"],
+  ["noted", "写过评论"]
+];
+const DEFAULT_BANDS = [
+  ["hard", "硬矛盾"],
+  ["rule", "破了自己的规则"],
+  ["path", "路线接不上"],
+  ["stale", "文档是旧的"],
+  ["ahead", "还没写就会撞上"]
+];
+const AGENT_INSTRUCTIONS = "yes：按 note 改；note 为空则按 suggestion；两者都空则停下问，不猜。note 与 suggestion 冲突时以 note 为准。no：不改正文；note 有补充则只记会话日志。later：本轮不改，记待办。unread 或不在 items 里的条目：不改。只改该条 docs 点名的文件。规则全文见 docs/templates/叙事路径.md §6.4。";
+const KNOWN_BANDS = new Set(["hard", "rule", "path", "stale", "ahead"]);
+const VALID_MARKS = new Set(["unread", "yes", "no", "later"]);
+
+const $ = (s) => document.querySelector(s);
+const list = $("#list");
+let review = null;
+let state = {};
+let band = "all";
+let topic = "all";
+let mark = "all";
+let query = "";
+let currentId = "";
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+function highlight(s) {
+  const t = esc(s);
+  const needle = query.trim();
+  if (!needle) return t;
+  const re = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return t.replace(re, (m) => `<mark>${m}</mark>`);
+}
+function bandLabel(id) {
+  const row = (review.bands || []).find((x) => x[0] === id);
+  return row ? row[1] : id;
+}
+function topicLabel(id) {
+  const row = (review.topics || []).find((x) => x[0] === id);
+  return row ? row[1] : (id || "");
+}
+function markLabel(id) {
+  const row = MARKS.find((x) => x[0] === id);
+  return row ? row[1] : id;
+}
+function bandClass(id) {
+  return KNOWN_BANDS.has(id) ? id : "other";
+}
+function cardState(id) {
+  return state[id] || {};
+}
+function currentMark(id) {
+  const raw = cardState(id).mark || "unread";
+  return VALID_MARKS.has(raw) ? raw : "unread";
+}
+function save() {
+  try { localStorage.setItem(storageKey(), JSON.stringify(state)); }
+  catch { $("#status").textContent = "这台浏览器没能记下标注。导出仍然可用。"; }
+}
+function storageKey() {
+  return "review-board:" + (review.review_id || "untitled");
+}
+
+function tableHtml(table) {
+  if (!table || !Array.isArray(table.headers) || !Array.isArray(table.rows)) return "";
+  const head = table.headers.map((h) => `<th>${highlight(h)}</th>`).join("");
+  const body = table.rows.map((row) => {
+    const cells = (Array.isArray(row) ? row : []).map((cell) => `<td>${highlight(cell)}</td>`).join("");
+    return `<tr>${cells}</tr>`;
+  }).join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function cardHtml(c) {
+  const st = cardState(c.id);
+  const chosen = currentMark(c.id);
+  const quotes = (c.quotes || []).map((q, qi) => `
+    <blockquote>
+      <header>
+        <span class="src">${esc(q.file || "未填文件")}</span>
+        <span class="loc">${esc(q.loc || "")}</span>
+        <button type="button" class="copy-path" data-qi="${qi}">复制路径</button>
+      </header>
+      <p>${highlight(q.text || "")}</p>
+    </blockquote>`).join("");
+  const sug = String(c.suggestion || "").trim();
+  const sugHtml = sug
+    ? `<p class="suggestion"><b>建议改法</b>${highlight(sug)}</p>`
+    : `<p class="suggestion empty"><b>建议改法</b>没有。选「要改」时请在评论里写明。</p>`;
+  const ruling = MARKS.map(([k, lab]) =>
+    `<button type="button" data-mark="${k}" aria-pressed="${chosen === k}">${lab}</button>`).join("");
+  return `<article class="card" id="${esc(c.id)}" data-band="${esc(c.band)}" data-topic="${esc(c.topic || "")}" data-mark="${chosen}">
+    <div class="card-head">
+      <span class="band ${bandClass(c.band)}">${esc(bandLabel(c.band))}</span>
+      <div>
+        <h3>${highlight(c.title)}</h3>
+        <p class="meta">${esc((c.docs || []).join(" · "))}</p>
+      </div>
+    </div>
+    <p class="verdict">${highlight(c.verdict || "")}</p>
+    ${sugHtml}
+    ${tableHtml(c.table)}
+    <div class="quotes ${(c.quotes || []).length === 1 ? "one" : ""}">${quotes}</div>
+    <div class="card-tools">
+      <span class="ruling">${ruling}</span>
+      <button type="button" class="ghost link-btn">复制链接</button>
+    </div>
+    <label class="comment-label">评论
+      <textarea placeholder="这条你打算怎么裁。留空则按建议改法。">${esc(st.note || "")}</textarea>
+    </label>
+  </article>`;
+}
+
+function render() {
+  list.innerHTML = review.cards.map(cardHtml).join("");
+  apply();
+  document.querySelectorAll(".card").forEach((el) => {
+    el.classList.toggle("is-current", el.id === currentId);
+  });
+}
+
+function visibleCards() {
+  return [...document.querySelectorAll(".card")].filter((el) => !el.classList.contains("hidden"));
+}
+
+function apply() {
+  const q = query.trim().toLowerCase();
+  document.querySelectorAll(".card").forEach((el) => {
+    const c = review.cards.find((item) => item.id === el.id);
+    if (!c) return;
+    const st = cardState(c.id);
+    const blob = [
+      c.title, c.verdict, c.suggestion, (c.docs || []).join(" "),
+      (c.quotes || []).map((item) => [item.file, item.loc, item.text].join(" ")).join(" "),
+      JSON.stringify(c.table || "")
+    ].join(" ").toLowerCase();
+    const chosen = currentMark(c.id);
+    const markOk = mark === "all"
+      || (mark === "unread" && chosen === "unread")
+      || (mark === "noted" && String(st.note || "").trim())
+      || chosen === mark;
+    const show = (band === "all" || c.band === band)
+      && (topic === "all" || c.topic === topic)
+      && markOk
+      && (!q || blob.includes(q));
+    el.classList.toggle("hidden", !show);
+  });
+  const shown = visibleCards().length;
+  $("#n-show").textContent = shown;
+  $("#empty").classList.toggle("show", shown === 0);
+  const yes = review.cards.filter((c) => currentMark(c.id) === "yes").length;
+  const unread = review.cards.filter((c) => currentMark(c.id) === "unread").length;
+  const ruled = review.cards.length - unread;
+  $("#n-yes").textContent = yes;
+  $("#n-unread").textContent = unread;
+  const pct = review.cards.length ? Math.round(ruled / review.cards.length * 100) : 0;
+  $("#bar").style.width = pct + "%";
+  $("#bar-label").textContent = ruled ? `已裁决 ${ruled} / ${review.cards.length}` : "还没有裁决";
+}
+
+function setMark(id, next) {
+  state[id] = state[id] || {};
+  state[id].mark = next;
+  save();
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.dataset.mark = next;
+  card.querySelectorAll("[data-mark]").forEach((b) => {
+    b.setAttribute("aria-pressed", b.dataset.mark === next ? "true" : "false");
+  });
+  apply();
+}
+
+function focusCard(id) {
+  currentId = id;
+  document.querySelectorAll(".card").forEach((el) => {
+    el.classList.toggle("is-current", el.id === id);
+  });
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function copyText(text, btn, done) {
+  const previous = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = done;
+  } catch {
+    btn.textContent = text;
+  }
+  setTimeout(() => { btn.textContent = previous; }, 1200);
+}
+
+list.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const card = btn.closest(".card");
+  if (!card) return;
+  focusCard(card.id);
+  if (btn.dataset.mark) {
+    setMark(card.id, btn.dataset.mark);
+    return;
+  }
+  if (btn.classList.contains("copy-path")) {
+    const c = review.cards.find((item) => item.id === card.id);
+    const q = c && c.quotes && c.quotes[Number(btn.dataset.qi)];
+    copyText((q && q.file) || "", btn, "已复制");
+    return;
+  }
+  if (btn.classList.contains("link-btn")) {
+    const url = location.href.split("#")[0] + "#" + card.id;
+    copyText(url, btn, "已复制");
+  }
+});
+list.addEventListener("input", (e) => {
+  const ta = e.target;
+  if (!ta.matches("textarea")) return;
+  const card = ta.closest(".card");
+  state[card.id] = state[card.id] || {};
+  state[card.id].note = ta.value;
+  save();
+  apply();
+});
+
+function chipRow(host, items, get, set) {
+  host.innerHTML = items.map(([k, lab]) =>
+    `<button type="button" data-k="${esc(k)}" aria-pressed="${get() === k}">${esc(lab)}</button>`).join("");
+  host.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      set(btn.dataset.k);
+      host.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+      apply();
+    });
+  });
+}
+
+function renderChrome() {
+  const title = review.title || "审阅清单";
+  $("#doc-title").textContent = title;
+  document.title = [review.project, title].filter(Boolean).join(" · ");
+  $("#subtitle").textContent = [review.project, review.date, review.subtitle].filter(Boolean).join(" · ");
+  $("#lead").textContent = review.lead || "";
+  $("#intro").textContent = review.intro || "";
+  const example = $("#example");
+  if (review.review_id === "example") {
+    example.hidden = false;
+    example.textContent = "这是模板示例。复制到 docs/reviews/ 后只替换数据岛，review_id 与文件名（去掉 .html）保持一致。";
+  }
+  const problems = validate();
+  const box = $("#problems");
+  if (problems.length) {
+    box.hidden = false;
+    box.innerHTML = `<b>数据岛有 ${problems.length} 处要改</b><ul>${problems.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  const cleared = review.cleared || [];
+  const clearedEl = $("#cleared");
+  if (cleared.length) {
+    clearedEl.hidden = false;
+    clearedEl.innerHTML = `<summary>已核对、不算问题的部分</summary><ul>${cleared.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  const rows = review.timeline || [];
+  const block = $("#tl-block");
+  if (rows.length) {
+    block.hidden = false;
+    $("#timeline").innerHTML = rows.map((row) => {
+      const a = Number(row.start) || 0;
+      const b = Number(row.end) || 0;
+      const color = /^#[0-9a-fA-F]{3,8}$/.test(row.color || "") ? row.color : "#8a4b12";
+      return `<div class="tl-row"><span>${esc(row.label || "")}</span><div class="tl-track"><i class="tl-bar" style="left:${a}%;width:${Math.max(0, b - a)}%;background:${color}"></i></div></div>`;
+    }).join("");
+    const ticks = review.ticks || [];
+    $("#ticks").innerHTML = ticks.map((t) => `<span>${esc(t)}</span>`).join("");
+  }
+  const bands = [["all", "全部类型"]].concat(review.bands.length ? review.bands : DEFAULT_BANDS);
+  chipRow($("#bands"), bands, () => band, (v) => { band = v; });
+  const topicBlock = $("#topic-block");
+  if (review.topics.length) {
+    chipRow($("#topics"), [["all", "全部主题"]].concat(review.topics), () => topic, (v) => { topic = v; });
+  } else {
+    topicBlock.hidden = true;
+  }
+  chipRow($("#marks"), MARK_FILTERS, () => mark, (v) => { mark = v; });
+  $("#n-all").textContent = review.cards.length;
+}
+
+function validate() {
+  const problems = [];
+  const seen = new Set();
+  review.cards = (review.cards || []).filter((c, i) => {
+    if (!c || !c.id || !c.title || !c.band) {
+      problems.push(`第 ${i + 1} 条缺 id、title 或 band，已跳过`);
+      return false;
+    }
+    if (seen.has(c.id)) {
+      problems.push(`重复 id ${c.id}，已跳过`);
+      return false;
+    }
+    seen.add(c.id);
+    if (!Array.isArray(c.quotes) || !c.quotes.length) problems.push(`${c.id} 没有引文`);
+    if (!Array.isArray(c.docs) || !c.docs.length) problems.push(`${c.id} 没有 docs`);
+    return true;
+  });
+  review.bands = Array.isArray(review.bands) ? review.bands : [];
+  review.topics = Array.isArray(review.topics) ? review.topics : [];
+  return problems;
+}
+
+function itemOut(c) {
+  const st = cardState(c.id);
+  const chosen = currentMark(c.id);
+  return {
+    id: c.id,
+    band: c.band,
+    band_label: bandLabel(c.band),
+    topic: c.topic || "",
+    topic_label: topicLabel(c.topic),
+    title: c.title,
+    docs: c.docs || [],
+    verdict: c.verdict || "",
+    suggestion: c.suggestion || "",
+    quotes: (c.quotes || []).map((q) => ({ file: q.file || "", loc: q.loc || "", text: q.text || "" })),
+    mark: chosen,
+    mark_label: markLabel(chosen),
+    note: st.note || ""
+  };
+}
+
+function download(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2) + "\n"], { type: "application/json" });
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  $("#status").textContent = `已导出 ${filename}。请放回 docs/reviews/，让 AI 读取。`;
+}
+
+function exportBoard(mode) {
+  const items = review.cards.map(itemOut).filter((item) => {
+    if (mode === "action") return item.mark === "yes" || item.mark === "later";
+    return true;
+  });
+  if (mode === "action" && !items.length) {
+    $("#status").textContent = "没有「要改」或「以后再改」的条目。";
+    return;
+  }
+  if (mode === "all" && items.every((item) => item.mark === "unread") && !confirm("还没有裁决。仍要导出全部条目吗？")) return;
+  const name = mode === "action" ? `${review.review_id}-标注-要改.json` : `${review.review_id}-标注.json`;
+  download(name, {
+    review_id: review.review_id || "",
+    source_html: review.file || "",
+    exported: new Date().toISOString(),
+    agent_instructions: AGENT_INSTRUCTIONS,
+    items
+  });
+}
+
+function importState(data) {
+  if (!data || typeof data !== "object" || !Array.isArray(data.items)) {
+    $("#status").textContent = "这份 JSON 没有 items 数组。";
+    return;
+  }
+  if (data.review_id && review.review_id && data.review_id !== review.review_id) {
+    $("#status").textContent = `这份标注属于 ${data.review_id}，当前页面是 ${review.review_id}。没有导入。`;
+    return;
+  }
+  const ids = new Set(review.cards.map((c) => c.id));
+  let applied = 0;
+  let skipped = 0;
+  data.items.forEach((item) => {
+    if (!item || !ids.has(item.id)) { skipped += 1; return; }
+    const next = VALID_MARKS.has(item.mark) ? item.mark : "unread";
+    state[item.id] = { mark: next, note: String(item.note || "") };
+    applied += 1;
+  });
+  save();
+  render();
+  $("#status").textContent = `导入 ${applied} 条${skipped ? `，${skipped} 条对不上编号` : ""}。`;
+}
+
+$("#expand").addEventListener("click", () => {
+  document.querySelectorAll(".quotes").forEach((n) => { n.classList.remove("is-collapsed"); });
+});
+$("#collapse").addEventListener("click", () => {
+  document.querySelectorAll(".quotes").forEach((n) => { n.classList.add("is-collapsed"); });
+});
+$("#next").addEventListener("click", () => {
+  const next = visibleCards().find((el) => currentMark(el.id) === "unread");
+  if (next) focusCard(next.id);
+  else $("#status").textContent = "筛选里没有未看的条目。";
+});
+$("#export").addEventListener("click", () => exportBoard("all"));
+$("#export-action").addEventListener("click", () => exportBoard("action"));
+$("#import").addEventListener("click", () => $("#import-file").click());
+$("#import-file").addEventListener("change", () => {
+  const file = $("#import-file").files && $("#import-file").files[0];
+  $("#import-file").value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { importState(JSON.parse(String(reader.result))); }
+    catch { $("#status").textContent = "这个文件不是合法 JSON。"; }
+  };
+  reader.readAsText(file, "utf-8");
+});
+$("#reset").addEventListener("click", () => {
+  if (!confirm("清空这台浏览器里的标注和评论？清单还在，磁盘上的文件也不会改。")) return;
+  Object.keys(state).forEach((k) => delete state[k]);
+  save();
+  render();
+  $("#status").textContent = "已清空这台浏览器里的标注。";
+});
+$("#q").addEventListener("input", (e) => {
+  query = e.target.value;
+  render();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && document.activeElement !== $("#q")) {
+    e.preventDefault();
+    $("#q").focus();
+    return;
+  }
+  if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+  const cards = visibleCards();
+  if (!cards.length) return;
+  if (e.key === "j" || e.key === "J" || e.key === "k" || e.key === "K") {
+    const delta = (e.key === "j" || e.key === "J") ? 1 : -1;
+    let i = cards.findIndex((el) => el.id === currentId);
+    if (i < 0) i = 0;
+    else i = Math.max(0, Math.min(cards.length - 1, i + delta));
+    focusCard(cards[i].id);
+  }
+  const keyMark = { "1": "yes", "2": "no", "3": "later" };
+  if (keyMark[e.key]) {
+    const target = cards.find((el) => el.id === currentId) || cards[0];
+    setMark(target.id, keyMark[e.key]);
+    focusCard(target.id);
+  }
+});
+
+function boot() {
+  let data;
+  try {
+    data = JSON.parse($("#review-data").textContent);
+  } catch (e) {
+    $("#problems").hidden = false;
+    $("#problems").textContent = "数据岛不是合法 JSON：" + e.message;
+    return;
+  }
+  review = data;
+  renderChrome();
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey()) || "{}");
+    if (saved && typeof saved === "object" && !Array.isArray(saved)) state = saved;
+  } catch { state = {}; }
+  currentId = review.cards[0] ? review.cards[0].id : "";
+  render();
+  if (location.hash) {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (document.getElementById(id)) focusCard(id);
+  }
+}
+boot();
+</script>
+</body>
+</html>
