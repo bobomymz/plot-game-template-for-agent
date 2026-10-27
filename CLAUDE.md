@@ -11,7 +11,7 @@ Agent 每次会话开始必须读本文件和 `/docs/00-project-state.md`，结�
 
 ## 2. 硬规则（任何阶段适用）
 
-1. **剧情与引擎分离**：剧情全部放独立剧情文件（.js 对象字面量，按章/幕/区域分文件），引擎只解析与运行，禁止在引擎代码硬编码剧情；剧情文件允许行内注释（伏笔标注、选择影响标注、文件头结构图）与少量路由函数（动态跳转），但数据形态必须仍可被校验脚本加载。引擎用母本预置参考引擎（ADR-0010：零构建，双击 index.html 即玩），项目机制（HUD/手册/闪色等）在 story 层与元字段实现、不改引擎核心，接口见 templates.md §14。
+1. **剧情与引擎分离**：剧情全部放独立剧情文件（.js 对象字面量，按章/幕/区域分文件），引擎只解析与运行，禁止在引擎代码硬编码剧情；剧情文件允许行内注释（伏笔标注、选择影响标注、文件头结构图）与少量路由函数（动态跳转），但数据形态必须仍可被校验脚本加载。引擎用母本预置参考引擎（ADR-0010：零构建，双击 index.html 即玩），项目机制（HUD/手册/闪色等）在 story 层与元字段实现、不改引擎核心，接口见 docs/templates/引擎语法手册.md。
 2. **先概念 → 再结构 → 后文本**：结构未冻结不扩写全文；概念内部先真相后玩法（阶段 1 五层顺序）。
 3. **垂直切片优先**：先做 1 个可玩章节验证核心系统，再扩展主线支线。
 4. **阶段门禁**：每阶段产出「草案 + 自评 + 门禁清单 + 待确认问题」，用户确认后才进下一阶段。
@@ -49,7 +49,7 @@ Agent 每次会话开始必须读本文件和 `/docs/00-project-state.md`，结�
 
 ### 阶段 3：技术设计
 
-产出：`/docs/04-tech-design.md`：架构图、数据模型（引擎方言 schema，字段全集见 templates.md §14）、母本引擎定制（可选机制挂载清单、项目专属元字段、存档键与格式版本迁移策略）、UI 换肤、部署方案、测试策略。母本已预置参考引擎（根目录四文件范式，ADR-0010）与校验脚本（`/tests/story-validation/`，schema 校验 + 图遍历），本阶段只做项目定制与专属字段扩展；路径专属技术检查点（开放世界/混合的引擎铁律、固定分支的伏笔回收矩阵）见 叙事路径.md 各路径小节。技术栈确定后，在 CLAUDE.md §7「常用命令」补 dev/build。
+产出：`/docs/04-tech-design.md`：架构图、数据模型（引擎方言 schema，字段全集见 docs/templates/引擎语法手册.md）、母本引擎定制（可选机制挂载清单、项目专属元字段、存档键与格式版本迁移策略）、UI 换肤、部署方案、测试策略。母本已预置参考引擎（根目录四文件范式，ADR-0010）与校验脚本（`/tests/story-validation/`，schema 校验 + 图遍历），本阶段只做项目定制与专属字段扩展；路径专属技术检查点（开放世界/混合的引擎铁律、固定分支的伏笔回收矩阵）见 叙事路径.md 各路径小节。技术栈确定后，在 CLAUDE.md §7「常用命令」补 dev/build。
 
 门禁：架构图覆盖产出清单全部条目与数据流；引擎定制项逐一落点（挂载/元字段/存档）；校验脚本跑通本项目剧情文件（配置可解析）；部署平台与步骤已点名；不引入未确认的大型依赖。
 
@@ -91,7 +91,7 @@ Agent 每次会话开始必须读本文件和 `/docs/00-project-state.md`，结�
 | `/docs/decisions/ADR-*.md` | 重要决策与被否决的方案 |
 | `/lore/**/*.yaml` | 角色/场所/事件卡（设定变多时才建） |
 
-模板统一在 `/docs/templates/`：共享模板在 `templates.md`，叙事路径专属模板在 `叙事路径.md`，成批裁决页复制 `review-board.html`。原则：仓库即记忆，先查索引再新增，同一设定只有一个主文件。
+模板统一在 `/docs/templates/`：共享模板在 `templates.md`，叙事路径专属模板在 `叙事路径.md`，引擎字段语法在 `引擎语法手册.md`，成批裁决页复制 `review-board.html`。原则：仓库即记忆，先查索引再新增，同一设定只有一个主文件。
 
 ## 6. 会话协议
 
@@ -101,6 +101,7 @@ Agent 每次会话开始必须读本文件和 `/docs/00-project-state.md`，结�
 ## 7. 常用命令
 
 - 校验剧情数据：`node tests/story-validation/validate.js`（默认跑 `/story/`，也可指定目录；阶段 2 起随时可跑）
+- 引擎行为探针：`node tools/engine-behavior-probe.js`（改 engine.js 或引擎语法手册后必跑；FAIL＝手册与引擎分叉）
 - 冒烟自检：`node tests/story-validation/validate.js tests/story-validation/fixtures/mini`（模板自带迷你样例，应全绿）
 - 可玩冒烟：双击根目录 `index.html`（母本演示《雨夜旅馆》应能完整开玩；换皮/扩写后同法自测）
 - 报告存档：`node tests/story-validation/validate.js > /tests/reports/<日期>-校验.txt`（阶段 5 门禁附产物）
@@ -121,6 +122,7 @@ Agent 每次会话开始必须读本文件和 `/docs/00-project-state.md`，结�
   05-style-guide.md
   templates/templates.md
   templates/叙事路径.md
+  templates/引擎语法手册.md
   templates/review-board.html
   reviews/               # 成批裁决的审阅页与标注 JSON，用到再生成
   regions/区域方案-*.md   # 开放世界/混合

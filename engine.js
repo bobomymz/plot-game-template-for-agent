@@ -962,7 +962,7 @@ function setChoiceText(el, choice) {
 
 // ====== 渲染选项 ======
 // 普通选项按钮的统一创建（renderChoices 与黑暗光锥的即时选项共用）：
-// 点击链路 = clearQTE → pushHistory → condition 分支 → effect → 跳转，与常规选项完全一致
+// 点击链路 = clearQTE → condition 分支 → ackRollOnce → pushHistory → effect → 跳转，与常规选项完全一致
 function createChoiceButton(choice) {
   const btn = document.createElement("button");
   btn.className = "choice-btn";
@@ -1272,8 +1272,9 @@ function renderChoices(scene, sceneId) {
 // 语义：按 **rollOnce 组** 记账，同一组内只掷一次。
 //   · 回溯 → pushHistory 的快照**不含**该组 → 自动重新武装 → **回溯即可重掷**。
 //     这正是我们要的：「你失败了，下辈子注意点」的叙事契约就是允许换一条时间线。
-//   · 死亡重开 / refresh 连续重进 → 组标记保留 → 不重掷，事实稳定。
-//   · 读档 → 组标记随之恢复 → 不重掷，避免刷新即改命。
+//   · 死亡重开/手动重开 → restartRun 把 gameState 整体重置回 _variables（_rollOnce 不在其中）→
+//     组标记清空、重新武装 → **重掷**（重开即新一局；2026-10-27 审校探针实证，旧注释"保留"有误）。
+//   · 刷新续玩/读档 → 组标记随存档/快照恢复 → 不重掷，避免刷新即改命。
 // 写法：`onEnter: function (v) { if (rollOnce(v, "card")) v._cardLuck = Math.random() < .3 ? 0 : 1; return {}; }`
 // ⚠ 掷骰结果变量仍必须注册进 `_variables`，否则依赖它的 showCondition 会静默失效（lint_story 会抓）。
 const ROLL_ONCE_KEY = "_rollOnce";
@@ -1324,7 +1325,7 @@ function appendDeathRestart(scene) {
 }
 
 // ====== 黑暗光锥（darkSearch：暗图 + 提亮双层 + 遮罩，光照 dwell 发现热点）======
-// 数据格式见 docs/引擎语法手册.md「黑暗光锥」节。设计要点：
+// 数据格式见 docs/templates/引擎语法手册.md「黑暗光锥」节。设计要点：
 // · 发现即互动：热点可挂 choice（完整普通选项语义）——照亮瞬间追加渲染到下方
 //   选项区（choice-new 入场动画），点击走 createChoiceButton 统一链路；
 //   已发现（var=true）的热点，进场景时直接补渲染其选项（按 showCondition 过滤）。

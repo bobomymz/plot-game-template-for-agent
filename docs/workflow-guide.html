@@ -182,7 +182,7 @@
     </nav>
     <main id="stage"></main>
   </div>
-  <footer>进度记在这台浏览器里。双击本文件即可打开。细则见 CLAUDE.md、docs/templates/templates.md、docs/templates/叙事路径.md。</footer>
+  <footer>进度记在这台浏览器里。双击本文件即可打开。细则见 CLAUDE.md、docs/templates/templates.md、docs/templates/叙事路径.md、docs/templates/引擎语法手册.md。</footer>
 </div>
 <noscript>
   <p>脚本关闭时仍可记住主干：复制仓库后先做初始化清单，再按「定调 → 真相 → 谜面 → 机制 → 系统 → 结局」过阶段 1，然后骨架四轮审阅、文档自检、技术设计、垂直切片、校验试玩、发布。剧情放 story/，引擎用母本预置的 engine.js（零构建，双击 index.html 即玩）。</p>
@@ -360,8 +360,9 @@
     { id: "skel-i", path: "docs/skeleton/index.md", group: "骨架与审阅", phases: ["2"], keys: "跨章 跨区", what: "只记跨章或跨区的边。", more: "出现第一条跨单位跳转时才建。单位内部的跳转留在各章、各区自己的装配图。" },
     { id: "skel-ch", path: "docs/skeleton/chN-短名.md", group: "骨架与审阅", phases: ["2"], keys: "节拍 职责 遭遇 装配", what: "固定分支的一章，或混合型公共脊柱的一章。", more: "四段都写：节拍条、职责表、遭遇卡、装配图。N 和剧情文件的章号一致。" },
     { id: "skel-r", path: "docs/skeleton/region-名.md", group: "骨架与审阅", phases: ["2"], keys: "区域骨架", what: "开放世界或混合型扩展区的遭遇和装配。", more: "定位和差异声明留在区域方案。这个区若有自己的公共脊柱，四段都写。" },
-    { id: "tpl", path: "docs/templates/templates.md", group: "骨架与审阅", phases: ["all"], keys: "模板 节点 schema 变量", what: "共享模板：状态、日志、ADR、节点、变量、结局、初始化清单、引擎接口。", more: "推进一律 choices：单选项即线性，多选项同目标是风味；无 choices 即终点。" },
+    { id: "tpl", path: "docs/templates/templates.md", group: "骨架与审阅", phases: ["all"], keys: "模板 节点 schema 变量", what: "共享模板：状态、日志、ADR、节点、变量、结局、初始化清单。", more: "推进一律 choices：单选项即线性，多选项同目标是风味；无 choices 即终点。" },
     { id: "narr", path: "docs/templates/叙事路径.md", group: "骨架与审阅", phases: ["all"], keys: "开放世界 固定分支 混合 四轮 自检", what: "三条叙事路径在阶段 2–6 的单一规则来源。", more: "审阅、自检、审阅页在 §6，三条路径都保留。" },
+    { id: "engman", path: "docs/templates/引擎语法手册.md", group: "骨架与审阅", phases: ["2", "3", "4"], keys: "引擎 语法 字段 条件 效果 QTE 存档", what: "引擎字段与机制全集，写剧情代码前必读。", more: "与 engine.js 矛盾时以引擎为准，并回改手册。" },
     { id: "board", path: "docs/templates/review-board.html", group: "骨架与审阅", phases: ["2", "5"], keys: "审阅页 标注", what: "成批裁决的空壳。", more: "复制到 docs/reviews/ 再填 JSON。母本里这份壳要留着。" },
     { id: "reviews", path: "docs/reviews/", group: "骨架与审阅", phases: ["2", "5"], keys: "标注 json", what: "某一次审阅页和导出的标注。", more: "需要裁决的矛盾或剧情 bug 达到 3 条才生成。1–2 条在对话里问。" },
     { id: "regions", path: "docs/regions/区域方案-名.md", group: "骨架与审阅", phases: ["2"], keys: "入口契约 差异", what: "开放世界或混合型的单区方案。", more: "含定位、差异声明、入口契约。场景清单只留一行，指向骨架文件。" },
@@ -374,7 +375,7 @@
     { id: "chars", path: "story/characters.js", group: "剧情与代码", phases: ["2"], keys: "角色名", what: "展示名和实体 ID 的对照。", more: "节点里写 char_xx。界面要显示的名字放在这里。" },
     { id: "fore", path: "story/foreshadow.js", group: "剧情与代码", phases: ["2", "4", "5"], keys: "伏笔 红鲱鱼", what: "固定分支和混合型的伏笔台账。", more: "埋下时登记，收回时改状态。刻意不回收的标 herring，并写明意图。" },
     { id: "nodes", path: "story/*.js", group: "剧情与代码", phases: ["2", "4"], keys: "节点 next choices", what: "剧情节点。自检通过之后才从骨架落地。", more: "允许行内注释：伏笔、选择影响、文件头结构图。" },
-    { id: "engine", path: "engine.js · index.html · style.css", group: "剧情与代码", phases: ["3", "4"], keys: "引擎 起步包 零构建", what: "母本预置参考引擎（ADR-0010），源自 930 实战。", more: "零构建，双击 index.html 即玩。项目机制在 story 层实现，不改引擎核心；接口速查见 templates.md §14。" },
+    { id: "engine", path: "engine.js · index.html · style.css", group: "剧情与代码", phases: ["3", "4"], keys: "引擎 起步包 零构建", what: "母本预置参考引擎（ADR-0010），源自 930 实战。", more: "零构建，双击 index.html 即玩。项目机制在 story 层实现，不改引擎核心；字段与机制语法见 docs/templates/引擎语法手册.md。" },
     { id: "val", path: "tests/story-validation/validate.js", group: "剧情与代码", phases: ["2", "3", "5"], keys: "校验 死路 节奏", what: "母本自带的校验：schema、图遍历、节奏粗检。", more: "阶段 2 起可以跑。阶段 3 按项目加规则。阶段 5 全量跑，并把报告放进 tests/reports/。" },
     { id: "mini", path: "tests/story-validation/fixtures/mini", group: "剧情与代码", phases: ["3", "5"], keys: "冒烟", what: "一份应该全绿的迷你样例。", more: "用来确认校验脚本本身还能跑。" }
   ];

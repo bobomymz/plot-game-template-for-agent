@@ -13,7 +13,7 @@
  * 结局表完整性，外加伏笔台账 × 行内注释对账（固定分支/混合）。
  * 路径专属项（联通红线、环秩、回收矩阵等）在阶段 3 于本文件尾部扩展区追加。
  *
- * schema 对齐母本引擎方言（ADR-0010）：跳转 next/nextScene 等价（选项与节点级）、
+ * schema 对齐母本引擎方言（ADR-0010）：推进一律 choices[].nextScene（场景级 next/nextScene 与选项级 next 引擎不消费，出现即报错）、
  * 条件可为对象/表达式串/函数（仅对象做静态变量收集）、onEnter 直改不解析（靠 VARIABLES.changes 对账）、
  * nextScene 可为 redirect 函数（函数体内引用的已定义节点 ID 计入静态可达，仍计动态提示人工确认）。
  *
@@ -114,7 +114,9 @@ function loadStory(dir) {
 
 function outgoing(nodes, id) {
   // 返回 { targets: [节点ID], dynamic: 0|n }
-  // nextScene 与 next 等价（运行时引擎用 nextScene）
+  // 只沿引擎真正会走的边：choices[].nextScene/elseScene/timeoutScene、qte.onTimeout、
+  // darkSearch 热点 choice/onFound、redirect 函数体内的节点字面量。
+  // 场景级 next/nextScene 不是方言（引擎不消费，checkNodes 报错），不作边。
   const n = nodes[id];
   const out = { targets: [], dynamic: 0 };
   if (!n) return out;
@@ -129,13 +131,23 @@ function outgoing(nodes, id) {
     }
     else if (typeof dest === 'string') out.targets.push(dest);
   };
-  take(n.next || n.nextScene);
+  if (typeof n.qte === 'function') take(n.qte);
+  else if (n.qte && typeof n.qte === 'object') take(n.qte.onTimeout);
   if (Array.isArray(n.choices)) {
     for (const c of n.choices) {
       if (!c) continue;
-      take(c.next || c.nextScene);
+      take(c.nextScene);
+      take(c.elseScene);
+      take(c.timeoutScene);
     }
   } else if (typeof n.choices === 'function') out.dynamic++;
+  if (n.darkSearch && Array.isArray(n.darkSearch.spots)) {
+    for (const s of n.darkSearch.spots) {
+      if (!s) continue;
+      take(s.onFound);                                  // 函数体字面量＝可跳目标
+      if (s.choice) { take(s.choice.nextScene); take(s.choice.elseScene); }
+    }
+  }
   return out;
 }
 
@@ -183,17 +195,21 @@ function checkNodes(L) {
       if (textSeen.has(key)) warn(`文本重复：${id} 与 ${textSeen.get(key)} 的 text 完全相同`);
       else textSeen.set(key, id);
     }
-    const hasNext = ('next' in n) || ('nextScene' in n);
+    if ('next' in n || 'nextScene' in n)
+      err(`节点 ${id}：场景级 next/nextScene 引擎不消费（ADR-0010 方言：推进一律 choices[].nextScene，无 choices 即终点），请改写`);
     const hasCh = Array.isArray(n.choices) && n.choices.length > 0;
-    if (hasNext && hasCh) err(`节点 ${id}：next 与 choices 并存（二选一）`);
-    if (!hasNext && !hasCh && !endingEntries.has(id)) err(`节点 ${id}：死路（无 next/choices，且不是任何结局的 entry_node）`);
+    const hasQteExit = !!(n.qte && (typeof n.qte === 'function' || n.qte.onTimeout));
+    const hasSpotChoice = !!(n.darkSearch && Array.isArray(n.darkSearch.spots) && n.darkSearch.spots.some((s) => s && s.choice));
+    if (!hasCh && !hasQteExit && !hasSpotChoice && !endingEntries.has(id))
+      err(`节点 ${id}：死路（无 choices，且不是任何结局的 entry_node）`);
     const out = outgoing(nodes, id);
     dynamicTotal += out.dynamic;
     for (const t of out.targets) if (!nodeIds.has(t)) err(`节点 ${id}：指向不存在的节点 ${t}（死链）`);
     if (Array.isArray(n.choices)) {
       n.choices.forEach((c, i) => {
         if (!c || typeof c.text !== 'string' || !c.text.trim()) err(`节点 ${id}：选项 ${i} 缺 text`);
-        if (!('next' in c) && !('nextScene' in c)) err(`节点 ${id}：选项 ${i}（${c && c.text}）缺 next`);
+        if (!('nextScene' in c)) err(`节点 ${id}：选项 ${i}（${c && c.text}）缺 nextScene`);
+        if ('next' in c) err(`节点 ${id}：选项 ${i}（${c && c.text}）用了 next——引擎只读 nextScene，请改写`);
       });
     }
     // 扩展点：项目专属节点字段（如 区域、位置、静态属性）在此追加校验

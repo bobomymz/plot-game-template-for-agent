@@ -1,6 +1,6 @@
 # 项目模板库
 
-新建下列文件时，复制对应模板。所有示例值均为占位符，按实际内容替换。本文件只收跨叙事路径共享的模板，路径专属模板（伏笔台账、区域方案、场景表、骨架文件、路径校验清单等）与三路径总览在 `叙事路径.md`；两文件超过约 400 行时继续按类型拆分，并同步更新 CLAUDE.md 与各文档中的引用。
+新建下列文件时，复制对应模板。所有示例值均为占位符，按实际内容替换。本文件只收跨叙事路径共享的模板，路径专属模板（伏笔台账、区域方案、场景表、骨架文件、路径校验清单等）与三路径总览在 `叙事路径.md`；引擎字段与机制语法在 `引擎语法手册.md`（参考资料，不受行数阈值约束）。md 文件超过约 400 行时继续按类型拆分，并同步更新 CLAUDE.md 与各文档中的引用。
 
 ## 1. 项目状态 /docs/00-project-state.md
 
@@ -85,7 +85,7 @@ source_sessions: []
 
 ## 6. 剧情节点 /story/*.js
 
-剧情文件为 .js 对象字面量，按章/幕/区域一文件（如 `ch1.js`；开放世界可建区域子目录），正文文件用 `Object.assign(storyData, {...})` 向全局合并；引导文件 `00core.js` 建全局 `storyData` 并写运行时变量初值 `_variables` 与 `_meta` 弹窗文案。schema 为母本引擎方言（ADR-0010；字段全集与加载顺序见 §14）：**推进一律 `choices`**——单选项＝纯推进，多选项同目标＝L0 风味选择；**无 `choices` 的场景即终点**（结局/死亡）。引擎不消费节点级 `next`，勿用。
+剧情文件为 .js 对象字面量，按章/幕/区域一文件（如 `ch1.js`；开放世界可建区域子目录），正文文件用 `Object.assign(storyData, {...})` 向全局合并；引导文件 `00core.js` 建全局 `storyData` 并写运行时变量初值 `_variables` 与 `_meta` 弹窗文案。schema 为母本引擎方言（ADR-0010；字段全集见 引擎语法手册.md，加载顺序见 §14）：**推进一律 `choices`**——单选项＝纯推进，多选项同目标＝L0 风味选择；**无 `choices` 的场景即终点**（结局/死亡）。引擎不消费节点级 `next`，勿用。
 
 ```js
 // ===== ch2 · 文件头结构图：公共脊柱 → 三向探索 → 收敛到 ch3 =====
@@ -93,7 +93,7 @@ Object.assign(storyData, {
   "ch2_17": {
     // 伏笔 F03（埋设）：厕格字条入册；计划回收：第 5 章
     onEnter: function (v) { v.flag_met_xx = 1; },   // 效果两轨之一：函数直改（另一轨为声明式 {set/add/mul}）
-    text: "……",                                     // 支持 {变量} 插值与 para() 分段（§14）
+    text: "……",                                     // 支持 {变量} 插值；数组＝分段（引擎语法手册.md §3；para() 属 utils 惯例）
     choices: [
       { text: "推门进去", nextScene: "ch2_18" }      // 单选项＝线性推进
     ]
@@ -268,28 +268,10 @@ var ENDINGS = {
 路径结构：      # 固定分支：脊柱 / 互斥支线 / 收敛点 ID。开放世界：区域差异矩阵指针。混合：扩展地图（节点群 → 区域，优先级与依赖），表留在此，遭遇不留
 ```
 
-## 14. 引擎接口与可选机制（母本引擎速查）
+## 14. 引擎起步包与语法手册（指针）
 
-母本预置参考引擎（ADR-0010，源自《九三〇来宾须知》实战代码，去项目化手术见文件内注释；与 930 侧分叉，引擎级修复需双向手动同步）。零构建，file:// 双击 `index.html` 即玩。装配顺序：`story/00core.js`（引导）→ `story/utils.js`（可选，正文辅助函数如 `para()`）→ 正文（按章/幕/区域）→ `engine.js` 必须最后；三表（endings/variables/foreshadow）只给校验，无需装配。校验脚本同序加载（`validate.js` loadStory）。
+母本预置参考引擎（ADR-0010，源自《九三〇来宾须知》实战代码并分叉，引擎级修复需双向手动同步）：根目录 `engine.js`/`index.html`/`style.css` + `/story/` 起步包，零构建，file:// 双击 `index.html` 即玩。
 
-**节点字段**（剧情侧；§6 为写作视角，此处为全集）：
-
-| 字段 | 形态 | 说明 |
-|---|---|---|
-| `text` | 字符串 / 函数(v)→字符串 / 数组 | 函数按当前状态取文；数组＝分段依次播放；支持 `{变量}` 插值与受限 HTML（`para()` 拼段为惯用法） |
-| `onEnter` | `{set/add/mul}` 或 函数(v)→效果对象 | 进入场景触发（函数可直改 gameState）；回溯/读档自动跳过，副作用不重复 |
-| `choices` | 数组（见下） | 无即终点；单选项＝推进，多选项同目标＝L0 风味 |
-| `image` / `imageZoom` | 字符串或函数(v) / 布尔 | 场景图；`imageZoom` 开点击放大 |
-| `deathRestart` / `deathRestartText` | 布尔 / 字符串 | 死亡结局专用重开按钮（走 restartRun：死亡计数+1，回到 start） |
-| `backtrack` | 字符串 | 本场景回溯按钮文案覆盖 |
-| `shake` | onEnter 内 `true` | 场景抖动 |
-| `qte` | 对象 | 场景级限时（时限/typewriter 等模式），见引擎源码 QTE 节注释 |
-| `engineEntry` | 布尔 | 校验侧标记：允许作为可达性起点的入口（如开放世界各区域门） |
-
-**选项字段**：`text`（必填）；`nextScene`（字符串或 redirect 函数）；`condition`（不满足且无 elseScene → 隐藏；有 elseScene → 点击时分流）；`showCondition`（不满足 → 隐藏）；`elseScene`；`effect`（`{set/add/mul}`，选中即生效）；`input`（输入型：采集到 `gameState._input`，condition 提交时求值）；`timeout`/`timeoutScene`（选项级倒计时）。
-
-**元字段**（`00core.js` 挂在 storyData 上，下划线开头）：`_variables` 运行时初值；`_meta` 文案与存档（`title`/`continueText`/`newText`/`deathRestartText`/`backtrackText`/`saveSummary(v)`/`saveKey`）；`_caps` 变量值域钳制（min/max）；`_display` HUD 显示格式；`_reactive` 派生变量与响应规则；`_globalTriggers` 全局触发器（condition + priority + 跳转目标，结局场景豁免——用于「体力归零即死」类横切规则）。
-
-**引擎内建全局**：`_visit` 场景访问计数、`_lastScene` 上一场景、`rollOnce(state, key)`（本局定桩掷骰，回溯不重掷）、自动存档（localStorage，键默认按页面路径隔离、`SAVE_VERSION` 格式版本，迁移策略在阶段 3 定）、回溯（入档上限 30 步）、多周目（`_runNumber`/`deathCount`）、打字机（HTML 标签整体插入）、图片预加载。
-
-**可选机制挂载**（不挂 DOM/不写元字段即不激活，引擎有容错；实现模式参考 930 仓库）：HUD 状态条（story 侧脚本渲染）、规则手册/图鉴面板（story 侧提供 `refreshRulesPanel` + `#rules-btn`/`#rules-panel`）、记忆闪色、屏幕特效遮罩（`_screenEffects`）、黑暗光锥（darkSearch 场景热点）。已知缺口：**无成就系统**——阶段 3 决定 story 层补或裁需求。
+- **字段与机制全集在 `引擎语法手册.md`**（场景/选项/文本/条件/效果/QTE/输入框/响应式/触发器/回溯/存档/_meta/story 层可选机制/陷阱速查）。与 engine.js 实际行为矛盾时，以引擎为准并回改手册。
+- 装配顺序：`story/00core.js`（引导）→ `story/utils.js`（可选）→ 正文 → `engine.js` 必须最后；三表（endings/variables/foreshadow）只给校验，无需装配，`validate.js` 同序加载。
+- 项目机制不改引擎核心，在 story 层挂可选机制（HUD/规则面板 `refreshRulesPanel`/记忆闪色/屏幕特效/黑暗光锥/图片查看器等，挂载分工见手册 §18）；已知缺口：**无成就系统**，阶段 3 决定 story 层补或裁。

@@ -101,3 +101,21 @@
 - 修复引擎移植性 bug：存档键由固定串 `jiusailing_save_v1` 改为按页面路径隔离（file:// 同源会跨游戏串档），`_meta.saveKey` 可固定；存档弹窗/死亡重开/回溯默认文案经 `_meta` 覆盖，模板 index.html 摆脱 retitleSave hack。
 - CLAUDE.md：§2 硬规则1、§3 阶段3/4（自研引擎→裁剪母本引擎）、§4 成就缺口标注、§7 可玩冒烟命令、§8 文件树平铺（删 `/src/`）；行数 145 保持预算内。叙事路径.md §6.2/装配图措辞同步；workflow-guide.html 全面同步。
 - 浏览器实测通过：真相线/死亡线/存档弹窗/条件隐藏/redirect 路由/`{trust}` 插值/死亡重开回流；校验正反向用例全绿。
+
+## workflow-v3.1 — 2026-10-27
+
+- 新增 `docs/templates/引擎语法手册.md`（§0–§20 共 21 节，参考资料、不受行数阈值约束）：以 engine.js 为唯一权威盘出的字段与机制全集——场景/选项字段全集、文本系统（插值与 `_display`/受限 HTML 双通道与白名单/分段/打字机）、条件四态、效果系统（算子顺序/同算子唯一/`shake` 位置）、响应式、全局触发器（优先级与豁免）、QTE（场景级/选项级）、输入框、内建变量、rollOnce、记忆闪色协议、屏幕特效、图片查看器、黑暗光锥、回溯、存档与 `_meta`、story 层可选机制挂载分工、z-index 阶梯、陷阱速查 15 条。与 engine.js 矛盾时以引擎为准并回改手册。
+- 结构与深度参照《尸潮笔记》docs/引擎语法手册.md，逐项对照母本引擎后取舍：未沿用其过时项（布尔条件形式——母本 `condition: false` 实为兜底放行；`input.match/matchVar/wrongScene`——引擎不存在这些字段）；补齐母本新机制（`fixedChoices`/`nightImmune`/`rollOnce`/`_visit`/`deathRestart`/结局与夜间触发豁免/存档键按路径隔离）。
+- templates.md §14 由速查收窄为指针（手册+装配顺序+可选机制挂载），并修正其原三处失准：`_display` 是插值显示格式而非 HUD、`shake` 在 onEnter 效果对象内而非节点字段、`_runNumber`/`deathCount` 为 story 层管理而非引擎内建。
+- 引用同步：CLAUDE.md 四处指针+文件树（146 行保持预算）、index.html 装配注释、engine.js 黑暗光锥注释路径（补 templates/）、workflow-guide.html（页脚、FILES 新增 engman 条目、引擎条目）。
+- 校验复跑 `/story/` 与 fixtures/mini 全绿（1 提示为设计内的动态路由人工确认）。
+
+## workflow-v3.2 — 2026-10-27
+
+- 外部审校报告（`docs/templates/引擎语法手册-审校报告.md`）逐条核实后采纳：修正手册 6 处事实错误——rollOnce 死亡重开/手动重开为**重掷**（旧文"保留"有误，探针实证）、校验脚本终点只认 `ENDINGS[].entry_node`（不看「结局」前缀）、记忆闪色在选项渲染**之后**播、QTE 无 onTimeout 有 choices 时按钮仍在不卡死、选项 text 数组直接 TypeError（非静默忽略）、`applyScreenEffects` 仅 4 个调用点（不在 applyEffect 内）；3 处口径——两种重开都走 `persistRulesLedger`（仅死亡重开递增 `deathCount`）、`deathCount` 由引擎计数且依赖 persistRulesLedger 存在、场景级 `next` 升级为 ⚠。
+- 手册补遗漏 4 条（input×QTE 不可用、nextScene 死链后果与不写档、§3.2 写作配额、`{_input}` 首屏原样显示）＋ §20 陷阱速查 16-19；表述层修正（点击链路补 ackRollOnce、mul 初始化为乘数本身、内建变量拆行、光源档位改表、z-index 逐项等）。
+- 手册结构增补：目录＋三条阅读路线、§0.1 顶层元字段总表、§0.2 机制组合速查（含互斥）、§0.3 最小可运行骨架、附录 A 可调常量表、附录 B 终点三套口径对照（491→640 行，§0-§20 编号不动）。
+- validate.js 口径对齐引擎（ADR-0010 方言）：场景级 `next`/`nextScene` 与选项级 `next` 由"等价放行"改为报错；图遍历改为只走引擎真实边（`choices[].nextScene/elseScene/timeoutScene`、函数型 qte 提取 onTimeout 字面量、`darkSearch` 光点选项与 onFound）；死路判定豁免 qte 出口与光点选择场景。反向用例验证：写 `next` 的数据现在报错，不再放行进游戏变剧终屏。
+- engine.js 注释修正两处（rollOnce 重开语义、点击链路顺序），行为不变；CLAUDE.md §7 增补探针命令（147 行保持预算）；探针 6 处标签随手册修正同步改锚引擎契约。
+- 两项裁决：rollOnce 死亡重开＝重掷（重开即新一局，只改文档不改代码）；`next` 校验＝报错（比报告建议的 warning 更严，方言权威是引擎）。跳过装饰项：全局"节点→场景"术语清扫（以 §0 一句定义收口）、⚠/粗体判据与中西文间距规范化。
+- 探针 10/10 PASS；`/story/` 与 fixtures/mini 校验全绿。

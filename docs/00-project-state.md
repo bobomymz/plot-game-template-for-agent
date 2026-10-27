@@ -1,8 +1,8 @@
 # 项目状态
 
 current_phase: 1 概念与需求（尚未开始提问，模板待复用）
-current_version: workflow-v3.0
-last_session: 2026-10-21-01-引擎起步包
+current_version: workflow-v3.2
+last_session: 2026-10-27-02-引擎语法手册审校
 next_gate: 用户确认需求规格与概念圣经
 
 frozen: {}            # 尚无冻结内容
@@ -29,3 +29,5 @@ notes:
   - 仓库定位：可复用的剧情游戏工作流模板母本，不含具体游戏设定；新项目复制整套文档后从阶段 1 开始。
   - 2026-10-12：新增 `docs/workflow-guide.html`，交互讲解目录与六阶段流程。不改阶段规则。
   - 2026-10-21（会话01）：母本预置参考引擎与四文件范式（ADR-0010，workflow-v3.0）。`engine.js`/`index.html`/`style.css`/`story/`《雨夜旅馆》起步包双击即玩；schema 以引擎方言为准（templates.md §6/§7/§8/§14 重写，validate.js 适配）；CLAUDE.md 阶段3/4 改「裁剪母本引擎」。已知缺口：引擎无成就系统。母本引擎与 930 引擎自此分叉，修复需双向手动同步。
+  - 2026-10-27（会话01）：新增 `docs/templates/引擎语法手册.md`（§0–§20，权威=engine.js，矛盾以引擎为准并回改手册）；templates.md §14 收窄为指针并修正三处失准（`_display`/`shake`/`_runNumber`+`deathCount`）；CLAUDE.md（146 行）/index.html/engine.js 注释/workflow-guide.html 引用同步。校验复跑全绿。
+  - 2026-10-27（会话02）：外部审校采纳（workflow-v3.2）——手册 6 事实错误+3 口径修正、目录/§0.1-0.3/附录 A/B 增补（491→640 行）、§20 补 16-19；validate.js `next` 口径对齐引擎（报错＋图遍历只走引擎真实边）；engine.js 两处注释修正（行为不变）；CLAUDE.md §7 增探针命令（147 行）。裁决：rollOnce 死亡重开=重掷（只改文档）、`next`=报错。探针 10/10、校验全绿、反向用例验证。
