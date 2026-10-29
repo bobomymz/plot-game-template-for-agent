@@ -345,7 +345,8 @@
     { id: "id", title: "节点只写实体 ID", body: "角色、地点写成 char_xx、loc_xx。展示名放在实体卡或 characters.js。" },
     { id: "log", title: "改动写进 CHANGELOG", body: "每次修改更新 CHANGELOG.md。冻结版本打 git 标签，例如 v0.1-concept。" },
     { id: "draft", title: "新设定先标 draft", body: "你确认之后升为 frozen。和已经冻结的设定冲突时停下，列出冲突表，由你裁决，裁决记入 ADR。" },
-    { id: "budget", title: "CLAUDE.md 保持短", body: "上限大约 150 行。新规则写进 docs/，总纲里留一行指针。" }
+    { id: "budget", title: "CLAUDE.md 保持短", body: "上限大约 150 行。新规则写进 docs/，总纲里留一行指针。" },
+    { id: "restraint", title: "克制三则", body: "文档只写现在有效的设定：被否的提案、改错的历史、没采纳的自创设定都不进文档，留痕只到 ADR 和会话日志。讨论没到的层不出现具体剧情细节，示意例子不落档。新机制只有你要、或补既有闭环缺口时才写入；自创点子至多一句话进待确认。" }
   ];
   var FILES = [
     { id: "claude", path: "CLAUDE.md", group: "总纲", phases: ["all"], keys: "总纲 门禁 会话", what: "协作总纲。每会话开始先读。", more: "上限大约 150 行。阶段规则的细节在 docs/templates/。" },
@@ -385,7 +386,7 @@
     { id: "c-layers", title: "阶段 1 五层", sub: "真相到结局", view: "walk", stepId: "layers", phase: 1 },
     { id: "c-audit", title: "文档自检", sub: "满 3 条做审阅页", view: "walk", stepId: "audit", phase: 2 },
     { id: "c-route", title: "反馈分流", sub: "改动回到对应阶段", view: "walk", stepId: "route", phase: 1 },
-    { id: "c-rules", title: "九条硬规则", sub: "全程有效", view: "rules" },
+    { id: "c-rules", title: "十条硬规则", sub: "全程有效", view: "rules" },
     { id: "c-map", title: "文件地图", sub: "仓库里各文件何时出现", view: "map" },
     { id: "c-quiz", title: "小测", sub: "六题", view: "quiz" },
     { id: "c-phases", title: "六阶段", sub: "产出和门禁", view: "phases" }
@@ -751,7 +752,7 @@
       p.out.map(function (o) { return "<li>" + esc(o) + "</li>"; }).join("") + "</ul><h3>门禁</h3>" + gates + extra + "</div></div></div>";
   }
   function rulesHtml() {
-    return "<div class='sheet'><h2>九条硬规则</h2><p class='lead'>任何阶段都有效。点开一条看它落在文件的哪里。</p>" +
+    return "<div class='sheet'><h2>十条硬规则</h2><p class='lead'>任何阶段都有效。点开一条看它落在文件的哪里。</p>" +
       RULES.map(function (r) {
         var open = S.rule === r.id;
         return "<article class='rule'><button type='button' class='head' data-act='rule' data-id='" + r.id + "'>" + (open ? "▾ " : "▸ ") + esc(r.title) + "</button>" +
